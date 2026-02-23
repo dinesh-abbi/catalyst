@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+    .text-header {
+        @apply uppercase tracking-widest font-bold text-textPrimary;
+    }
+
+    .text-subheader {
+        @apply uppercase tracking-wide font-semibold text-textSecondary;
+    }
+}
