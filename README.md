@@ -25,6 +25,35 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Deploying to Production (EAS)
+
+To build the app for actual production devices (generating an `.aab`/`.apk` for Android or `.ipa` for iOS), you must use the Expo Application Services CLI (`eas-cli`), **not** `npx eas`.
+
+### 1. Install EAS CLI globally
+Because `eas` is a standalone tool, you need to install it globally on your machine:
+```bash
+npm install -g eas-cli
+```
+
+### 2. Log in to Expo
+Authenticate your terminal with your Expo account:
+```bash
+eas login
+```
+
+### 3. Run the Production Build
+This command will upload your project to Expo's servers and build the binaries.
+```bash
+eas build --profile production --platform all
+```
+*Note: You can specify `--platform android` or `--platform ios` instead of `all` to build just one.*
+
+### 4. Publishing Over-the-Air Updates
+If you only made JavaScript or Asset changes and want to update the live app instantly without rebuilding the binary:
+```bash
+eas update --branch production --message "Update description here"
+```
+
 ## Get a fresh project
 
 When you're ready, run:

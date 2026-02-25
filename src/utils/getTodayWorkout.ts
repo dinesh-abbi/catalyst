@@ -1,3 +1,5 @@
+import { useWorkoutStore } from '@/store/useWorkoutStore';
+
 export interface Exercise {
     id: string;
     name: string;
@@ -18,6 +20,7 @@ export interface WorkoutDayRaw {
 
 export interface TodayWorkout {
     dayNumber: number;
+    dayName: string;
     title: string;
     exercises: Exercise[];
 }
@@ -135,6 +138,7 @@ export function getWorkoutByDayNumber(dayNumber: number): TodayWorkout {
         // Failsafe return if something goes unexpectedly wrong
         return {
             dayNumber: dayNumber,
+            dayName: "Unknown",
             title: "Rest Day",
             exercises: []
         };
@@ -143,6 +147,7 @@ export function getWorkoutByDayNumber(dayNumber: number): TodayWorkout {
     // Format the output object mapping `focus` to `title`
     return {
         dayNumber: workoutForDay.dayNumber,
+        dayName: workoutForDay.assignedDay,
         title: workoutForDay.focus,
         exercises: workoutForDay.exercises,
     };
@@ -154,13 +159,21 @@ export function getWorkoutByDayNumber(dayNumber: number): TodayWorkout {
  * Days are mapped from 1 to 7:
  * Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7
  *
+ * @param overrideDayNumber Optional day number (1-7) to fetch instead of the current physical date
  * @returns {TodayWorkout} An object containing the day number, title (focus), and exercises.
  */
-export function getTodayWorkout(): TodayWorkout {
-    const currentDayIndex = new Date().getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
+export function getTodayWorkout(overrideDayNumber?: number): TodayWorkout {
+    if (overrideDayNumber !== undefined && overrideDayNumber >= 1 && overrideDayNumber <= 7) {
+        return getWorkoutByDayNumber(overrideDayNumber);
+    }
 
+    const currentDayIndex = new Date().getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
     // Transform standard JS day indices (0-6) to 1-7 mapping (Monday=1, ..., Sunday=7)
-    const mappedDayNumber = currentDayIndex === 0 ? 7 : currentDayIndex;
+    let mappedDayNumber = currentDayIndex === 0 ? 7 : currentDayIndex;
+
+    // Apply persistent schedule offset
+    const { scheduleOffset } = useWorkoutStore.getState();
+    mappedDayNumber = ((mappedDayNumber - 1 + scheduleOffset) % 7 + 7) % 7 + 1;
 
     return getWorkoutByDayNumber(mappedDayNumber);
 }

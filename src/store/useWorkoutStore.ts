@@ -1,8 +1,8 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTodayWorkout } from '@/utils/getTodayWorkout';
 import { triggerWorkoutCompleteNotification } from '@/utils/notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 interface WorkoutState {
     // === State ===
@@ -10,10 +10,15 @@ interface WorkoutState {
     loggedWeights: Record<string, number>;
     dismissTempoReminder: boolean;
     lastActiveDate: string | null;
+    waterIntakeML: number;
+    waterLogs: { id: string; amount: number; timestamp: number }[];
+    scheduleOffset: number; // Persistent shift for workouts (e.g. -1 means everything moved back 1 day)
 
     // === Actions ===
     toggleExercise: (id: string) => void;
     setWeight: (id: string, weight: number) => void;
+    addWater: (ml: number) => void;
+    setScheduleOffset: (offset: number) => void;
     resetDailyChecklist: () => void;
     setDismissTempoReminder: (dismiss: boolean) => void;
     checkAndResetAtMidnight: () => void;
@@ -25,7 +30,10 @@ export const useWorkoutStore = create<WorkoutState>()(
             completedExercises: {},
             loggedWeights: {},
             dismissTempoReminder: false,
-            lastActiveDate: new Date().toDateString(), // Store the date string to check against
+            lastActiveDate: new Date().toDateString(),
+            waterIntakeML: 0,
+            waterLogs: [],
+            scheduleOffset: 0,
 
             toggleExercise: (id) =>
                 set((state) => {
@@ -55,9 +63,23 @@ export const useWorkoutStore = create<WorkoutState>()(
                     },
                 })),
 
+            addWater: (ml: number) =>
+                set((state) => ({
+                    waterIntakeML: state.waterIntakeML + ml,
+                    waterLogs: [
+                        { id: Date.now().toString() + Math.random().toString(), amount: ml, timestamp: Date.now() },
+                        ...state.waterLogs
+                    ],
+                })),
+
+            setScheduleOffset: (offset: number) =>
+                set({ scheduleOffset: offset }),
+
             resetDailyChecklist: () =>
                 set({
                     completedExercises: {},
+                    waterIntakeML: 0,
+                    waterLogs: [],
                     lastActiveDate: new Date().toDateString(),
                 }),
 
@@ -80,14 +102,14 @@ export const useWorkoutStore = create<WorkoutState>()(
                 setItem: async (name: string, value: string) => {
                     try {
                         await AsyncStorage.setItem(name, value);
-                    } catch (error) {
+                    } catch (_) {
                         // Silent failure on storage error
                     }
                 },
                 getItem: async (name: string) => {
                     try {
                         return await AsyncStorage.getItem(name);
-                    } catch (error) {
+                    } catch (_) {
                         // Silent failure on storage error
                         return null;
                     }
@@ -95,7 +117,7 @@ export const useWorkoutStore = create<WorkoutState>()(
                 removeItem: async (name: string) => {
                     try {
                         await AsyncStorage.removeItem(name);
-                    } catch (error) {
+                    } catch (_) {
                         // Silent failure on storage error
                     }
                 },
@@ -105,6 +127,9 @@ export const useWorkoutStore = create<WorkoutState>()(
                 loggedWeights: state.loggedWeights,
                 dismissTempoReminder: state.dismissTempoReminder,
                 lastActiveDate: state.lastActiveDate,
+                waterIntakeML: state.waterIntakeML,
+                waterLogs: state.waterLogs,
+                scheduleOffset: state.scheduleOffset,
                 // Optional: you can choose to persist completedExercises if you want them to survive app unloads during the same day. 
                 // We persist it here, but `checkAndResetAtMidnight` handles clearing it on a new day.
                 completedExercises: state.completedExercises,

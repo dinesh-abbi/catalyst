@@ -1,7 +1,11 @@
-import React, { useState, memo } from 'react';
-import { View, Text, FlatList, SafeAreaView, ScrollView, TouchableOpacity, Modal } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { workoutData, WorkoutDayRaw, Exercise } from '@/utils/getTodayWorkout';
+import { useWorkoutStore } from '@/store/useWorkoutStore';
+import { Exercise, workoutData, WorkoutDayRaw } from '@/utils/getTodayWorkout';
+import { Feather } from '@expo/vector-icons';
+import React, { memo, useState } from 'react';
+import { ActivityIndicator, FlatList, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 const ReadOnlyExerciseCard = memo(({ exercise }: { exercise: Exercise }) => {
     const isCardio = !!exercise.isCardio;
@@ -38,29 +42,56 @@ const ReadOnlyExerciseCard = memo(({ exercise }: { exercise: Exercise }) => {
         </View>
     );
 });
+ReadOnlyExerciseCard.displayName = 'ReadOnlyExerciseCard';
 
 export default function WeeklyOverviewScreen() {
-    const [selectedDay, setSelectedDay] = useState<WorkoutDayRaw | null>(null);
+    type ShiftedDay = WorkoutDayRaw & { physicalDayNum: number, physicalDayName: string };
+    const [selectedDay, setSelectedDay] = useState<ShiftedDay | null>(null);
+    const [isShifting, setIsShifting] = useState(false);
     const insets = useSafeAreaInsets();
+    const { scheduleOffset, setScheduleOffset } = useWorkoutStore();
 
     const currentDayIndex = new Date().getDay();
-    const mappedDayNumber = currentDayIndex === 0 ? 7 : currentDayIndex;
+    const currentPhysicalDay = currentDayIndex === 0 ? 7 : currentDayIndex;
+
+    const shiftedWorkoutData = workoutData.map(day => {
+        const physicalDayNum = ((day.dayNumber - 1 - scheduleOffset) % 7 + 7) % 7 + 1;
+        return {
+            ...day,
+            physicalDayNum,
+            physicalDayName: DAY_NAMES[physicalDayNum - 1]
+        };
+    }).sort((a, b) => a.physicalDayNum - b.physicalDayNum);
 
     return (
         <SafeAreaView className="flex-1 bg-backgroundMain">
             <ScrollView className="flex-1 px-5 pt-8" contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
-                <View className="mb-6">
-                    <Text className="text-header uppercase text-3xl font-extrabold tracking-tight mb-2">
-                        Weekly Overview
-                    </Text>
-                    <Text className="text-textSecondary text-sm leading-relaxed">
-                        Your 7-day training split.
-                    </Text>
+                <View className="mb-6 flex-row justify-between items-start">
+                    <View className="flex-1">
+                        <Text className="text-header uppercase text-3xl font-extrabold tracking-tight mb-2">
+                            Weekly Overview
+                        </Text>
+                        <Text className="text-textSecondary text-sm leading-relaxed mb-4">
+                            Your 7-day training split.
+                        </Text>
+                    </View>
+
+                    {scheduleOffset !== 0 && (
+                        <TouchableOpacity
+                            onPress={() => setScheduleOffset(0)}
+                            className="bg-accent/20 px-3 py-2 rounded-xl border border-accent/40 flex-row items-center ml-2"
+                        >
+                            <Feather name="refresh-ccw" size={14} color="#38bdf8" />
+                            <Text className="text-accent text-xs font-bold ml-1.5 uppercase">
+                                Reset
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 <View>
-                    {workoutData.map((day) => {
-                        const isToday = day.dayNumber === mappedDayNumber;
+                    {shiftedWorkoutData.map((day) => {
+                        const isToday = day.physicalDayNum === currentPhysicalDay;
                         return (
                             <TouchableOpacity
                                 key={day.dayNumber}
@@ -70,11 +101,16 @@ export default function WeeklyOverviewScreen() {
                             >
                                 <View className="flex-row items-center justify-between mb-1">
                                     <Text className={`font-bold tracking-wider uppercase text-sm ${isToday ? 'text-accent' : 'text-textSecondary'}`}>
-                                        {day.assignedDay} {isToday && '(TODAY)'}
+                                        {day.physicalDayName} {isToday && '(TODAY)'}
                                     </Text>
-                                    <Text className={`font-black text-lg ${isToday ? 'text-accent' : 'text-slate-600'}`}>
-                                        Day {day.dayNumber}
-                                    </Text>
+                                    <View className="flex-row items-center">
+                                        {scheduleOffset !== 0 && (
+                                            <Text className="text-slate-500 text-xs font-bold uppercase mr-2 tracking-widest">(Was {day.assignedDay})</Text>
+                                        )}
+                                        <Text className={`font-black text-lg ${isToday ? 'text-accent' : 'text-slate-600'}`}>
+                                            Day {day.dayNumber}
+                                        </Text>
+                                    </View>
                                 </View>
                                 <Text className={`text-xl font-bold ${isToday ? 'text-textPrimary' : 'text-slate-300'}`}>
                                     {day.focus}
@@ -112,6 +148,36 @@ export default function WeeklyOverviewScreen() {
                             <Text className="text-textPrimary font-bold">✕</Text>
                         </TouchableOpacity>
                     </View>
+
+                    {selectedDay && selectedDay.physicalDayNum !== currentPhysicalDay && (
+                        <TouchableOpacity
+                            disabled={isShifting}
+                            onPress={() => {
+                                setIsShifting(true);
+                                setTimeout(() => {
+                                    let newOffset = selectedDay.dayNumber - currentPhysicalDay;
+                                    if (newOffset > 3) newOffset -= 7;
+                                    if (newOffset < -3) newOffset += 7;
+
+                                    setScheduleOffset(newOffset);
+                                    setIsShifting(false);
+                                    setSelectedDay(null);
+                                }, 600); // Sleek brief delay
+                            }}
+                            className={`flex-row items-center justify-center py-4 rounded-2xl mb-6 ${isShifting ? 'bg-accent/10 border border-accent/20' : 'bg-accent/20 border border-accent/40'}`}
+                        >
+                            {isShifting ? (
+                                <ActivityIndicator color="#38bdf8" size="small" />
+                            ) : (
+                                <>
+                                    <Feather name="calendar" size={16} color="#38bdf8" style={{ marginRight: 8 }} />
+                                    <Text className="text-accent font-bold text-center uppercase tracking-widest text-xs">
+                                        Make this Today&apos;s Workout
+                                    </Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    )}
 
                     <FlatList
                         data={selectedDay?.exercises || []}

@@ -1,11 +1,15 @@
-import { ThemeProvider, Theme } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Theme, ThemeProvider } from '@react-navigation/native';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../../global.css';
 
 // Import our centralized theme
 import appTheme from '../theme';
+
+import * as Notifications from 'expo-notifications';
+import { useEffect } from 'react';
+import { requestPermissionsAndSchedule } from '../utils/notifications';
 
 const NativeTheme: Theme = {
   dark: true,
@@ -37,10 +41,27 @@ const NativeTheme: Theme = {
   },
 };
 
-import { useEffect } from 'react';
-import { requestPermissionsAndSchedule } from '../utils/notifications';
-
 export default function RootLayout() {
+  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (
+      lastNotificationResponse &&
+      lastNotificationResponse.notification.request.content.data.url &&
+      lastNotificationResponse.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER
+    ) {
+      const url = lastNotificationResponse.notification.request.content.data.url as string;
+      // Extract the path from catalyst://path
+      const path = url.replace('catalyst://', '');
+      if (path === 'wake' || path === 'go' || path === 'complete') {
+        router.push(`/${path}` as any);
+      } else if (path === 'water') {
+        router.push(`/?tab=water` as any);
+      }
+    }
+  }, [lastNotificationResponse, router]);
+
   useEffect(() => {
     // Request permission and schedule the local motivational push notifications
     requestPermissionsAndSchedule();
@@ -49,6 +70,9 @@ export default function RootLayout() {
     <ThemeProvider value={NativeTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="wake" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="go" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="complete" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
       </Stack>
       <StatusBar style="light" />

@@ -1,9 +1,9 @@
-import React, { memo, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
-import { CheckCircle2, Circle } from 'lucide-react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, withTiming } from 'react-native-reanimated';
-import { Exercise } from '@/utils/getTodayWorkout';
 import appTheme from '@/theme';
+import { Exercise } from '@/utils/getTodayWorkout';
+import { CheckCircle2, Circle } from 'lucide-react-native';
+import React, { memo, useEffect } from 'react';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 
 interface ExerciseCardProps {
     exercise: Exercise;
@@ -11,6 +11,7 @@ interface ExerciseCardProps {
     loggedWeight: number | undefined;
     onToggleComplete: () => void;
     onUpdateWeight: (weight: number) => void;
+    index: number;
 }
 
 export const ExerciseCard = memo(function ExerciseCard({
@@ -18,9 +19,13 @@ export const ExerciseCard = memo(function ExerciseCard({
     isCompleted,
     loggedWeight,
     onToggleComplete,
-    onUpdateWeight
+    onUpdateWeight,
+    index,
 }: ExerciseCardProps) {
     const scale = useSharedValue(1);
+    const checkedScale = useSharedValue(isCompleted ? 1 : 0);
+
+    const ITEM_SIZE = 180; // Approximate height + margin of a card
 
     useEffect(() => {
         if (isCompleted) {
@@ -28,10 +33,12 @@ export const ExerciseCard = memo(function ExerciseCard({
                 withTiming(1.2, { duration: 100 }),
                 withSpring(1, { damping: 10, stiffness: 200 })
             );
+            checkedScale.value = withTiming(1, { duration: 300 });
         } else {
             scale.value = withTiming(1, { duration: 100 });
+            checkedScale.value = withTiming(0, { duration: 300 });
         }
-    }, [isCompleted, scale]);
+    }, [isCompleted, scale, checkedScale]);
 
     const animatedCheckStyle = useAnimatedStyle(() => {
         return {
@@ -39,11 +46,30 @@ export const ExerciseCard = memo(function ExerciseCard({
         };
     });
 
+    const animatedCardStyle = useAnimatedStyle(() => {
+        const backgroundColor = interpolateColor(
+            checkedScale.value,
+            [0, 1],
+            [appTheme.colors.backgroundCard, 'rgba(34, 197, 94, 0.1)'] // Tailwind bg-backgroundCard to bg-green-500/10
+        );
+
+        const borderColor = interpolateColor(
+            checkedScale.value,
+            [0, 1],
+            ['#1e293b', 'rgba(34, 197, 94, 0.5)'] // Tailwind border-slate-800 to border-green-500/50
+        );
+
+        return {
+            backgroundColor,
+            borderColor,
+        };
+    });
+
     const isCardio = !!exercise.isCardio;
     const inputSuffix = isCardio ? 'min' : 'kg';
 
     return (
-        <View className={`rounded-2xl p-5 mb-4 border ${isCompleted ? 'bg-green-500/10 border-green-500/50 opacity-90' : 'bg-backgroundCard border-slate-800'}`}>
+        <Animated.View style={[animatedCardStyle, { borderWidth: 1 }]} className={`rounded-2xl p-5 mb-4`}>
 
             {/* Header Row: Title and Checkbox on the right */}
             <View className="flex-row items-start justify-between mb-4">
@@ -114,6 +140,6 @@ export const ExerciseCard = memo(function ExerciseCard({
                     <Text className="font-bold">Note:</Text> {exercise.notes}
                 </Text>
             </View>
-        </View>
+        </Animated.View>
     );
 });
