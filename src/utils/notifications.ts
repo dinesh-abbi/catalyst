@@ -12,13 +12,14 @@ Notifications.setNotificationHandler({
     }),
 });
 
-export async function requestPermissionsAndSchedule() {
+export async function requestPermissionsAndSchedule(force = false) {
     if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
+        await Notifications.setNotificationChannelAsync('catalyst_alerts_v2', {
+            name: 'Catalyst Alerts',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#e63946',
+            sound: 'water_remainder',
         });
     }
 
@@ -57,7 +58,7 @@ export async function requestPermissionsAndSchedule() {
 
     // If we have more than 10 alarms, they are already correctly set up, so we leave them alone
     // to prevent continuous cancellation from ruining the OS delivery schedule.
-    if (scheduled.length > 10) {
+    if (scheduled.length > 10 && !force) {
         return;
     }
 
@@ -75,8 +76,26 @@ async function scheduleWorkoutNotifications() {
     // In Expo Notification Triggers: Sunday=1, Monday=2, Tuesday=3, ... Saturday=7
     const activeDays = [2, 3, 4, 5, 6, 7]; // Monday to Saturday
 
+    // Attempt to get the schedule offset from the store if possible, otherwise default to 0
+    // We do this to avoid circular dependencies in some contexts, but ideally we'd pass it in.
+    // For background scheduling, we needs the most recent offset.
+    let scheduleOffset = 0;
+    try {
+        // We import it dynamically to avoid top-level circular dependency issues
+        const { useWorkoutStore } = require('@/store/useWorkoutStore');
+        scheduleOffset = useWorkoutStore.getState().scheduleOffset;
+    } catch (e) {
+        // Fallback to 0 if store isn't available
+    }
+
     for (const weekday of activeDays) {
-        const dayKey = weekday.toString() as keyof typeof notificationMessages;
+        // Calculate which workout day assigned to this physical weekday
+        const jsDayIndex = weekday - 1;
+        const m = jsDayIndex === 0 ? 7 : jsDayIndex; // 1=Mon ... 7=Sun
+        const d = ((m - 1 + scheduleOffset) % 7 + 7) % 7 + 1;
+
+        // Map workout day back to message key (1=Sun, 2=Mon... 7=Sat)
+        const dayKey = (d === 7 ? "1" : (d + 1).toString()) as keyof typeof notificationMessages;
         const msg = notificationMessages[dayKey];
 
         if (msg) {
@@ -85,8 +104,9 @@ async function scheduleWorkoutNotifications() {
                 content: {
                     title: msg.wake.title,
                     body: msg.wake.body,
-                    sound: 'default',
+                    sound: 'water_remainder',
                     data: { url: 'catalyst://wake' },
+                    ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'catalyst_alerts_v2' }),
                 },
                 trigger: {
                     type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
@@ -103,8 +123,9 @@ async function scheduleWorkoutNotifications() {
                 content: {
                     title: msg.go.title,
                     body: msg.go.body,
-                    sound: 'default',
+                    sound: 'water_remainder',
                     data: { url: 'catalyst://go' },
+                    ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'catalyst_alerts_v2' }),
                 },
                 trigger: {
                     type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
@@ -121,7 +142,22 @@ async function scheduleWorkoutNotifications() {
 export async function triggerWorkoutCompleteNotification() {
     // JS getDay is 0 (Sunday) to 6 (Saturday). Expo Weekday is 1 (Sunday) to 7 (Saturday).
     const expoWeekday = new Date().getDay() + 1;
-    const dayKey = expoWeekday.toString() as keyof typeof notificationMessages;
+
+    let scheduleOffset = 0;
+    try {
+        const { useWorkoutStore } = require('@/store/useWorkoutStore');
+        scheduleOffset = useWorkoutStore.getState().scheduleOffset;
+    } catch (e) {
+        // fallback
+    }
+
+    // Calculate which workout day is today
+    const jsDayIndex = expoWeekday - 1;
+    const m = jsDayIndex === 0 ? 7 : jsDayIndex;
+    const d = ((m - 1 + scheduleOffset) % 7 + 7) % 7 + 1;
+
+    // Map workout day to message key
+    const dayKey = (d === 7 ? "1" : (d + 1).toString()) as keyof typeof notificationMessages;
     const msg = notificationMessages[dayKey];
 
     if (msg) {
@@ -129,10 +165,14 @@ export async function triggerWorkoutCompleteNotification() {
             content: {
                 title: msg.complete.title,
                 body: msg.complete.body,
-                sound: 'default',
+                sound: 'water_remainder',
                 data: { url: 'catalyst://complete' },
+                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'catalyst_alerts_v2' }),
             },
-            trigger: null, // trigger immediately
+            trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+                seconds: 1,
+            },
         });
     }
 }
@@ -146,8 +186,9 @@ async function scheduleWaterReminders() {
             content: {
                 title: "Hydration Check 💧",
                 body: "Time to drink some water! Let's hit that 2.5L daily goal.",
-                sound: 'default',
+                sound: 'water_remainder',
                 data: { url: 'catalyst://water' }, // Deep link to the new water tab/screen
+                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'catalyst_alerts_v2' }),
             },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.DAILY,

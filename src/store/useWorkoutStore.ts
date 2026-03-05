@@ -1,5 +1,3 @@
-import { getTodayWorkout } from '@/utils/getTodayWorkout';
-import { triggerWorkoutCompleteNotification } from '@/utils/notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -45,9 +43,11 @@ export const useWorkoutStore = create<WorkoutState>()(
 
                     // Conditionally fire notification if this was the last exercise checked for today
                     if (isCompletedNow) {
+                        const { getTodayWorkout } = require('@/utils/getTodayWorkout');
                         const todayWorkout = getTodayWorkout();
-                        const allDone = todayWorkout.exercises.every(ex => nextCompleted[ex.id]);
+                        const allDone = todayWorkout.exercises.every((ex: { id: string }) => nextCompleted[ex.id]);
                         if (allDone) {
+                            const { triggerWorkoutCompleteNotification } = require('@/utils/notifications');
                             triggerWorkoutCompleteNotification();
                         }
                     }
@@ -72,8 +72,12 @@ export const useWorkoutStore = create<WorkoutState>()(
                     ],
                 })),
 
-            setScheduleOffset: (offset: number) =>
-                set({ scheduleOffset: offset }),
+            setScheduleOffset: (offset: number) => {
+                set({ scheduleOffset: offset });
+                // Re-schedule alarms to match the new workout day layout for each physical day
+                const { requestPermissionsAndSchedule } = require('@/utils/notifications');
+                requestPermissionsAndSchedule(true);
+            },
 
             resetDailyChecklist: () =>
                 set({

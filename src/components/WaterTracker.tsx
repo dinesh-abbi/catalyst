@@ -1,8 +1,101 @@
 import { useWorkoutStore } from '@/store/useWorkoutStore';
 import appTheme from '@/theme';
-import { Feather } from '@expo/vector-icons';
-import React, { useEffect, useRef } from 'react';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+function HydrationClock({ logs }: { logs: { id: string; amount: number; timestamp: number }[] }) {
+    const [time, setTime] = useState(new Date());
+
+    useEffect(() => {
+        const timer = setInterval(() => setTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const slotAmounts = new Array(12).fill(0);
+    logs.forEach(log => {
+        const logDate = new Date(log.timestamp);
+        const today = new Date();
+        if (
+            logDate.getDate() === today.getDate() &&
+            logDate.getMonth() === today.getMonth() &&
+            logDate.getFullYear() === today.getFullYear()
+        ) {
+            const hour = logDate.getHours();
+            const slot = hour % 12;
+            slotAmounts[slot] += log.amount;
+        }
+    });
+
+    const CLOCK_SIZE = 280;
+    const BORDER_WIDTH = 6;
+    const RADIUS = CLOCK_SIZE / 2;
+    const CENTER = RADIUS - BORDER_WIDTH;
+
+    const droplets = Array.from({ length: 12 }).map((_, i) => {
+        const angle = (i * 30 - 90) * (Math.PI / 180);
+        const distance = CENTER - 26;
+        const x = CENTER + distance * Math.cos(angle) - 16;
+        const y = CENTER + distance * Math.sin(angle) - 16;
+
+        const isFilled = slotAmounts[i] > 0;
+
+        return (
+            <View key={i} style={{ position: 'absolute', left: x, top: y, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
+                {isFilled ? (
+                    <View style={styles.clockFilledDrop}>
+                        <Ionicons name="water" size={16} color="#38BDF8" />
+                    </View>
+                ) : (
+                    <Ionicons name="water-outline" size={14} color="#334155" />
+                )}
+            </View>
+        );
+    });
+
+    const h = time.getHours();
+    const m = time.getMinutes();
+    const s = time.getSeconds();
+
+    const secondAngle = `${s * 6}deg`;
+    const minuteAngle = `${m * 6 + s * 0.1}deg`;
+    const hourAngle = `${(h % 12) * 30 + m * 0.5}deg`;
+
+    return (
+        <View style={styles.clockContainer}>
+            <Text style={styles.clockHeader}>Hydration Clock</Text>
+            <View style={styles.clockFace}>
+                {/* Droplets */}
+                {droplets}
+
+                {/* Hour Hand */}
+                <View style={[styles.handContainer, { transform: [{ rotate: hourAngle }] }]}>
+                    <View style={styles.hourHand} />
+                </View>
+
+                {/* Minute Hand */}
+                <View style={[styles.handContainer, { transform: [{ rotate: minuteAngle }] }]}>
+                    <View style={styles.minuteHand} />
+                </View>
+
+                {/* Second Hand */}
+                <View style={[styles.handContainer, { transform: [{ rotate: secondAngle }] }]}>
+                    <View style={styles.secondHand} />
+                </View>
+
+                {/* Center dot */}
+                <View style={styles.centerDotOuter}>
+                    <View style={styles.centerDotInner} />
+                </View>
+            </View>
+
+            <View style={styles.clockLegend}>
+                <Ionicons name="water" size={16} color="#38BDF8" />
+                <Text style={styles.clockLegendText}>Water Logged</Text>
+            </View>
+        </View>
+    );
+}
 
 export function WaterTracker() {
     const { waterIntakeML, addWater, waterLogs } = useWorkoutStore();
@@ -91,46 +184,8 @@ export function WaterTracker() {
                     </View>
                 </View>
 
-                {/* Hydration Timeline */}
-                <View style={styles.timelineContainer}>
-                    <Text style={styles.timelineTitle}>Today&apos;s Log</Text>
-                    {waterLogs.length === 0 ? (
-                        <View style={styles.emptyTimelineContainer}>
-                            <Feather name="clock" size={24} color={appTheme.colors.textSecondary} />
-                            <Text style={styles.emptyTimelineText}>No water logged yet today.</Text>
-                        </View>
-                    ) : (
-                        <View style={styles.timelineList}>
-                            {waterLogs.map((log, index) => {
-                                const isPositive = log.amount > 0;
-                                const timeString = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                                return (
-                                    <View key={log.id} style={styles.timelineRow}>
-                                        {/* Decorator (Line & Dot) */}
-                                        <View style={styles.timelineDecorator}>
-                                            <View style={[styles.timelineLineTop, index === 0 && { backgroundColor: 'transparent' }]} />
-                                            <View style={[styles.timelineDot, isPositive ? styles.timelineDotPositive : styles.timelineDotNegative]}>
-                                                <Feather name={isPositive ? "droplet" : "minus"} size={10} color={isPositive ? "#38bdf8" : "#fb923c"} />
-                                            </View>
-                                            <View style={[styles.timelineLineBottom, index === waterLogs.length - 1 && { backgroundColor: 'transparent' }]} />
-                                        </View>
-
-                                        {/* Content */}
-                                        <View style={styles.timelineContent}>
-                                            <Text style={styles.timelineTime}>{timeString}</Text>
-                                            <View style={[styles.timelineAmountBadge, isPositive ? styles.timelineBadgePositive : styles.timelineBadgeNegative]}>
-                                                <Text style={[styles.timelineAmountText, isPositive ? styles.timelineAmountTextPositive : styles.timelineAmountTextNegative]}>
-                                                    {isPositive ? '+' : '-'}{Math.abs(log.amount)} ML
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                );
-                            })}
-                        </View>
-                    )}
-                </View>
+                {/* Hydration Clock UI */}
+                <HydrationClock logs={waterLogs} />
             </View>
         </ScrollView>
     );
@@ -256,101 +311,110 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
-    timelineContainer: {
+    clockContainer: {
         width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
         marginTop: 16,
-        paddingTop: 24,
+        paddingTop: 32,
         borderTopWidth: 1,
         borderTopColor: '#1e293b',
     },
-    timelineTitle: {
+    clockHeader: {
         fontSize: 18,
         fontWeight: '900',
         color: appTheme.colors.textPrimary,
-        marginBottom: 20,
+        marginBottom: 24,
     },
-    emptyTimelineContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 24,
-        gap: 12,
+    clockFace: {
+        width: 280,
+        height: 280,
+        borderRadius: 140,
+        backgroundColor: '#0F172A',
+        borderWidth: 6,
+        borderColor: '#1E293B',
+        position: 'relative',
+        shadowColor: '#38BDF8',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10,
     },
-    emptyTimelineText: {
-        color: appTheme.colors.textSecondary,
-        fontSize: 14,
-        fontStyle: 'italic',
-    },
-    timelineList: {
-        paddingVertical: 8,
-    },
-    timelineRow: {
-        flexDirection: 'row',
-        minHeight: 60,
-    },
-    timelineDecorator: {
+    clockFilledDrop: {
         width: 32,
-        alignItems: 'center',
-    },
-    timelineLineTop: {
-        width: 2,
-        height: '35%',
-        backgroundColor: '#334155',
-    },
-    timelineLineBottom: {
-        width: 2,
-        flex: 1,
-        backgroundColor: '#334155',
-    },
-    timelineDot: {
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        borderWidth: 2,
-        alignItems: 'center',
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(56, 189, 248, 0.15)',
         justifyContent: 'center',
-        backgroundColor: appTheme.colors.backgroundMain,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(56, 189, 248, 0.4)',
     },
-    timelineDotPositive: {
-        borderColor: '#0284C7',
+    handContainer: {
+        position: 'absolute',
+        width: 280,
+        height: 280,
+        top: -6,
+        left: -6,
+        alignItems: 'center',
+        justifyContent: 'flex-start',
     },
-    timelineDotNegative: {
-        borderColor: '#EA580C',
+    hourHand: {
+        width: 6,
+        height: 65,
+        backgroundColor: '#94A3B8',
+        borderRadius: 4,
+        marginTop: 75,
     },
-    timelineContent: {
-        flex: 1,
+    minuteHand: {
+        width: 4,
+        height: 90,
+        backgroundColor: '#E2E8F0',
+        borderRadius: 3,
+        marginTop: 50,
+    },
+    secondHand: {
+        width: 2,
+        height: 105,
+        backgroundColor: '#38BDF8',
+        borderRadius: 2,
+        marginTop: 35,
+    },
+    centerDotOuter: {
+        position: 'absolute',
+        top: 126,
+        left: 126,
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: '#1E293B',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    centerDotInner: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#38BDF8',
+    },
+    clockLegend: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingBottom: 24, // Matches the height of the row to space out elements
-        paddingLeft: 12,
-    },
-    timelineTime: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: appTheme.colors.textPrimary,
-    },
-    timelineAmountBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
+        marginTop: 32,
+        backgroundColor: appTheme.colors.backgroundCard,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
         borderWidth: 1,
+        borderColor: '#1E293B',
     },
-    timelineBadgePositive: {
-        backgroundColor: 'rgba(2, 132, 199, 0.15)',
-        borderColor: 'rgba(2, 132, 199, 0.3)',
-    },
-    timelineBadgeNegative: {
-        backgroundColor: 'rgba(234, 88, 12, 0.15)',
-        borderColor: 'rgba(234, 88, 12, 0.3)',
-    },
-    timelineAmountText: {
+    clockLegendText: {
+        marginLeft: 8,
+        color: appTheme.colors.textSecondary,
         fontSize: 13,
         fontWeight: 'bold',
-    },
-    timelineAmountTextPositive: {
-        color: '#38BDF8',
-    },
-    timelineAmountTextNegative: {
-        color: '#FB923C',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
 });
