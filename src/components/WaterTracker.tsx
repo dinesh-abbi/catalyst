@@ -44,7 +44,7 @@ function HydrationClock({ logs }: { logs: { id: string; amount: number; timestam
             <View key={i} style={{ position: 'absolute', left: x, top: y, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
                 {isFilled ? (
                     <View style={styles.clockFilledDrop}>
-                        <Ionicons name="water" size={16} color="#38BDF8" />
+                        <Ionicons name="water" size={16} color={appTheme.colors.accent} />
                     </View>
                 ) : (
                     <Ionicons name="water-outline" size={14} color="#334155" />
@@ -90,7 +90,7 @@ function HydrationClock({ logs }: { logs: { id: string; amount: number; timestam
             </View>
 
             <View style={styles.clockLegend}>
-                <Ionicons name="water" size={16} color="#38BDF8" />
+                <Ionicons name="water" size={16} color={appTheme.colors.accent} />
                 <Text style={styles.clockLegendText}>Water Logged</Text>
             </View>
         </View>
@@ -134,7 +134,7 @@ export function WaterTracker() {
         >
             <View style={styles.content}>
                 <View style={styles.header}>
-                    <Feather name="droplet" size={48} color="#38BDF8" />
+                    <Feather name="droplet" size={48} color={appTheme.colors.accent} />
                     <Text style={styles.title}>Hydration Tracker</Text>
                     <Text style={styles.subtitle}>
                         {isGoalMet
@@ -143,7 +143,10 @@ export function WaterTracker() {
                     </Text>
                 </View>
 
-                {/* Animated Tank UI */}
+                {/* Hydration Clock UI Prominent Hero */}
+                <HydrationClock logs={waterLogs} />
+
+                {/* Animated Tank UI - Compact Glassmorphic */}
                 <View style={[styles.tankContainer, { height: TANK_HEIGHT }]}>
                     <Animated.View
                         style={[
@@ -167,25 +170,25 @@ export function WaterTracker() {
                         <TouchableOpacity
                             style={[styles.button, styles.noButton]}
                             onPress={() => addWater(-250)}
-                            activeOpacity={0.8}
+                            activeOpacity={0.7}
                         >
-                            <Feather name="minus" size={20} color={appTheme.colors.textSecondary} />
-                            <Text style={styles.noText}>250 ML</Text>
+                            <Feather name="minus" size={24} color={appTheme.colors.textSecondary} />
                         </TouchableOpacity>
+
+                        <View style={styles.logCenterDisplay}>
+                            <Feather name="droplet" size={20} color={appTheme.colors.accent} />
+                            <Text style={styles.logCenterText}>250 ML</Text>
+                        </View>
 
                         <TouchableOpacity
                             style={[styles.button, styles.yesButton]}
                             onPress={() => addWater(250)}
-                            activeOpacity={0.8}
+                            activeOpacity={0.7}
                         >
-                            <Feather name="plus" size={20} color="#FFF" />
-                            <Text style={styles.yesText}>250 ML</Text>
+                            <Feather name="plus" size={24} color="#FFF" />
                         </TouchableOpacity>
                     </View>
                 </View>
-
-                {/* Hydration Clock UI */}
-                <HydrationClock logs={waterLogs} />
             </View>
         </ScrollView>
     );
@@ -222,27 +225,28 @@ const styles = StyleSheet.create({
         lineHeight: 24,
     },
     tankContainer: {
-        width: 160,
-        backgroundColor: appTheme.colors.backgroundCard,
-        borderRadius: 80,
+        width: '100%',
+        maxWidth: 320,
+        backgroundColor: '#1E293B',
+        borderRadius: 24,
         overflow: 'hidden',
-        borderWidth: 4,
-        borderColor: '#1E293B',
-        marginBottom: 48,
+        borderWidth: 1,
+        borderColor: '#334155',
+        marginBottom: 32,
         position: 'relative',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 10,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 5,
     },
     tankFill: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#38BDF8',
-        borderRadius: 80,
+        backgroundColor: 'rgba(6, 182, 212, 0.2)', // Soft animated cyan wave
+        borderRadius: 24,
     },
     tankOverlay: {
         ...StyleSheet.absoluteFillObject,
@@ -250,75 +254,74 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     percentageText: {
-        fontSize: 36,
+        fontSize: 48,
         fontWeight: '900',
-        color: '#FFF',
-        textShadowColor: 'rgba(0, 0, 0, 0.4)',
-        textShadowOffset: { width: 0, height: 2 },
-        textShadowRadius: 4,
+        color: appTheme.colors.accent,
+        letterSpacing: -1,
     },
     mlText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: 16,
+        fontWeight: '600',
+        color: appTheme.colors.textSecondary,
         marginTop: 4,
     },
     controls: {
         width: '100%',
         alignItems: 'center',
+        paddingHorizontal: 20,
     },
     question: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
-        color: appTheme.colors.textPrimary,
-        marginBottom: 20,
+        color: appTheme.colors.textSecondary,
+        marginBottom: 16,
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
     },
     buttonRow: {
         flexDirection: 'row',
-        gap: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 24,
         width: '100%',
         marginBottom: 24,
     },
     button: {
-        flex: 1,
-        flexDirection: 'row',
-        gap: 8,
-        paddingVertical: 16,
-        borderRadius: 30,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
         alignItems: 'center',
         justifyContent: 'center',
     },
     yesButton: {
-        backgroundColor: '#0284C7',
-        shadowColor: '#0284C7',
-        shadowOffset: { width: 0, height: 4 },
+        backgroundColor: appTheme.colors.accent,
+        shadowColor: appTheme.colors.accent,
+        shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.4,
-        shadowRadius: 8,
-        elevation: 6,
+        shadowRadius: 12,
+        elevation: 8,
     },
     noButton: {
-        backgroundColor: appTheme.colors.backgroundCard,
+        backgroundColor: '#1E293B',
         borderWidth: 1,
         borderColor: '#334155',
     },
-    yesText: {
-        color: '#FFF',
-        fontSize: 16,
-        fontWeight: 'bold',
+    logCenterDisplay: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 20,
     },
-    noText: {
-        color: appTheme.colors.textSecondary,
-        fontSize: 16,
+    logCenterText: {
+        color: appTheme.colors.textPrimary,
+        fontSize: 20,
         fontWeight: 'bold',
+        marginTop: 4,
     },
     clockContainer: {
         width: '100%',
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 16,
-        paddingTop: 32,
-        borderTopWidth: 1,
-        borderTopColor: '#1e293b',
+        marginBottom: 40,
     },
     clockHeader: {
         fontSize: 18,
@@ -331,24 +334,24 @@ const styles = StyleSheet.create({
         height: 280,
         borderRadius: 140,
         backgroundColor: '#0F172A',
-        borderWidth: 6,
+        borderWidth: 4,
         borderColor: '#1E293B',
         position: 'relative',
-        shadowColor: '#38BDF8',
+        shadowColor: appTheme.colors.accent,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.15,
-        shadowRadius: 20,
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
         elevation: 10,
     },
     clockFilledDrop: {
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: 'rgba(56, 189, 248, 0.15)',
+        backgroundColor: 'rgba(6, 182, 212, 0.15)',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(56, 189, 248, 0.4)',
+        borderColor: 'rgba(6, 182, 212, 0.4)',
     },
     handContainer: {
         position: 'absolute',
@@ -376,7 +379,7 @@ const styles = StyleSheet.create({
     secondHand: {
         width: 2,
         height: 105,
-        backgroundColor: '#38BDF8',
+        backgroundColor: appTheme.colors.accent,
         borderRadius: 2,
         marginTop: 35,
     },
@@ -396,7 +399,7 @@ const styles = StyleSheet.create({
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: '#38BDF8',
+        backgroundColor: appTheme.colors.accent,
     },
     clockLegend: {
         flexDirection: 'row',

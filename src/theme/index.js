@@ -2,11 +2,11 @@
 
 const theme = {
     colors: {
-        backgroundMain: '#0f172a',
+        backgroundMain: '#0f172a', // Deep Ocean Slate
         backgroundCard: '#1e293b',
-        accent: '#e63946',
+        accent: '#06B6D4', // Vibrant Cyan/Aqua
         textPrimary: '#ffffff',
-        textSecondary: '#94a3b8',
+        textSecondary: '#cbd5e1', // Brightened slate for better contrast
     },
     spacing: {
         // Tailwind's default spacing is already consistent (4px increments), 
