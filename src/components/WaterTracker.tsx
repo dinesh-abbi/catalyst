@@ -12,7 +12,9 @@ function HydrationClock({ logs }: { logs: { id: string; amount: number; timestam
         return () => clearInterval(timer);
     }, []);
 
-    const slotAmounts = new Array(12).fill(0);
+    const amAmounts = new Array(12).fill(0);
+    const pmAmounts = new Array(12).fill(0);
+
     logs.forEach(log => {
         const logDate = new Date(log.timestamp);
         const today = new Date();
@@ -23,7 +25,11 @@ function HydrationClock({ logs }: { logs: { id: string; amount: number; timestam
         ) {
             const hour = logDate.getHours();
             const slot = hour % 12;
-            slotAmounts[slot] += log.amount;
+            if (hour < 12) {
+                amAmounts[slot] += log.amount;
+            } else {
+                pmAmounts[slot] += log.amount;
+            }
         }
     });
 
@@ -32,26 +38,96 @@ function HydrationClock({ logs }: { logs: { id: string; amount: number; timestam
     const RADIUS = CLOCK_SIZE / 2;
     const CENTER = RADIUS - BORDER_WIDTH;
 
-    const droplets = Array.from({ length: 12 }).map((_, i) => {
-        const angle = (i * 30 - 90) * (Math.PI / 180);
-        const distance = CENTER - 26;
-        const x = CENTER + distance * Math.cos(angle) - 16;
-        const y = CENTER + distance * Math.sin(angle) - 16;
+    const OUTER_DISTANCE = CENTER - 26;
+    const INNER_DISTANCE = CENTER - 65; // Inner ring for AM
 
-        const isFilled = slotAmounts[i] > 0;
+    const colors = [
+        { bg: 'rgba(6, 182, 212, 0.15)', border: 'rgba(6, 182, 212, 0.4)', icon: '#06B6D4' }, // Cyan - 1x (250ml)
+        { bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.4)', icon: '#3B82F6' }, // Blue - 2x (500ml)
+        { bg: 'rgba(139, 92, 246, 0.15)', border: 'rgba(139, 92, 246, 0.4)', icon: '#8B5CF6' }  // Purple - 3x+ (750ml+)
+    ];
 
-        return (
-            <View key={i} style={{ position: 'absolute', left: x, top: y, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
-                {isFilled ? (
-                    <View style={styles.clockFilledDrop}>
-                        <Ionicons name="water" size={16} color={appTheme.colors.accent} />
-                    </View>
-                ) : (
+    const allDrops = [];
+    for (let i = 0; i < 12; i++) {
+        const angleRad = (i * 30 - 90) * (Math.PI / 180);
+
+        // 1. PM Ring (Outer)
+        const pmAmount = pmAmounts[i];
+        if (pmAmount === 0) {
+            allDrops.push(
+                <View key={`PM-empty-${i}`} style={{ position: 'absolute', left: CENTER + OUTER_DISTANCE * Math.cos(angleRad) - 16, top: CENTER + OUTER_DISTANCE * Math.sin(angleRad) - 16, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
                     <Ionicons name="water-outline" size={14} color="#334155" />
-                )}
-            </View>
-        );
-    });
+                </View>
+            );
+        } else {
+            const dropCount = Math.max(1, Math.min(3, Math.ceil(pmAmount / 250)));
+            const cx = CENTER + OUTER_DISTANCE * Math.cos(angleRad);
+            const cy = CENTER + OUTER_DISTANCE * Math.sin(angleRad);
+
+            for (let d = 0; d < dropCount; d++) {
+                const offsetX = (d - (dropCount - 1) / 2) * 8;
+                const offsetY = (d - (dropCount - 1) / 2) * 4;
+                const colorTheme = colors[d % colors.length];
+
+                allDrops.push(
+                    <View key={`PM-filled-${i}-${d}`} style={{
+                        position: 'absolute',
+                        left: cx + offsetX - 16,
+                        top: cy + offsetY - 16,
+                        width: 32,
+                        height: 32,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: d
+                    }}>
+                        <View style={[styles.clockFilledDrop, { backgroundColor: colorTheme.bg, borderColor: colorTheme.border }]}>
+                            <Ionicons name="water" size={16} color={colorTheme.icon} />
+                        </View>
+                    </View>
+                );
+            }
+        }
+
+        // 2. AM Ring (Inner)
+        const amAmount = amAmounts[i];
+        if (amAmount === 0) {
+            allDrops.push(
+                <View key={`AM-empty-${i}`} style={{ position: 'absolute', left: CENTER + INNER_DISTANCE * Math.cos(angleRad) - 12, top: CENTER + INNER_DISTANCE * Math.sin(angleRad) - 12, width: 24, height: 24, justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="water-outline" size={10} color="#1E293B" />
+                </View>
+            );
+        } else {
+            const dropCount = Math.max(1, Math.min(3, Math.ceil(amAmount / 250)));
+            const cx = CENTER + INNER_DISTANCE * Math.cos(angleRad);
+            const cy = CENTER + INNER_DISTANCE * Math.sin(angleRad);
+
+            for (let d = 0; d < dropCount; d++) {
+                const offsetX = (d - (dropCount - 1) / 2) * 6;
+                const offsetY = (d - (dropCount - 1) / 2) * 3;
+                const colorTheme = colors[d % colors.length];
+
+                allDrops.push(
+                    <View key={`AM-filled-${i}-${d}`} style={{
+                        position: 'absolute',
+                        left: cx + offsetX - 12,
+                        top: cy + offsetY - 12,
+                        width: 24,
+                        height: 24,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: d
+                    }}>
+                        <View style={[styles.clockFilledDrop, {
+                            width: 24, height: 24, borderRadius: 12, borderWidth: 0.5,
+                            backgroundColor: colorTheme.bg, borderColor: colorTheme.border
+                        }]}>
+                            <Ionicons name="water" size={12} color={colorTheme.icon} />
+                        </View>
+                    </View>
+                );
+            }
+        }
+    }
 
     const h = time.getHours();
     const m = time.getMinutes();
@@ -65,8 +141,8 @@ function HydrationClock({ logs }: { logs: { id: string; amount: number; timestam
         <View style={styles.clockContainer}>
             <Text style={styles.clockHeader}>Hydration Clock</Text>
             <View style={styles.clockFace}>
-                {/* Droplets */}
-                {droplets}
+                {/* AM & PM Droplets */}
+                {allDrops}
 
                 {/* Hour Hand */}
                 <View style={[styles.handContainer, { transform: [{ rotate: hourAngle }] }]}>
@@ -89,9 +165,26 @@ function HydrationClock({ logs }: { logs: { id: string; amount: number; timestam
                 </View>
             </View>
 
-            <View style={styles.clockLegend}>
-                <Ionicons name="water" size={16} color={appTheme.colors.accent} />
-                <Text style={styles.clockLegendText}>Water Logged</Text>
+            <View style={styles.clockLegendsWrapper}>
+                <View style={styles.clockLegendContainer}>
+                    <View style={[styles.clockLegend, { marginRight: 8 }]}>
+                        <Ionicons name="water" size={12} color={appTheme.colors.accent} />
+                        <Text style={styles.clockLegendText}>AM</Text>
+                    </View>
+                    <View style={styles.clockLegend}>
+                        <Ionicons name="water" size={16} color={appTheme.colors.accent} />
+                        <Text style={styles.clockLegendText}>PM</Text>
+                    </View>
+                </View>
+
+                <View style={styles.colorLegendContainer}>
+                    <View style={[styles.colorDot, { backgroundColor: '#06B6D4' }]} />
+                    <Text style={styles.colorDotText}>1x</Text>
+                    <View style={[styles.colorDot, { backgroundColor: '#3B82F6', marginLeft: 12 }]} />
+                    <Text style={styles.colorDotText}>2x</Text>
+                    <View style={[styles.colorDot, { backgroundColor: '#8B5CF6', marginLeft: 12 }]} />
+                    <Text style={styles.colorDotText}>3x+</Text>
+                </View>
             </View>
         </View>
     );
@@ -401,10 +494,20 @@ const styles = StyleSheet.create({
         borderRadius: 3,
         backgroundColor: appTheme.colors.accent,
     },
+    clockLegendsWrapper: {
+        width: '100%',
+        alignItems: 'center',
+        marginTop: 32,
+    },
+    clockLegendContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
     clockLegend: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 32,
         backgroundColor: appTheme.colors.backgroundCard,
         paddingHorizontal: 16,
         paddingVertical: 8,
@@ -415,9 +518,28 @@ const styles = StyleSheet.create({
     clockLegendText: {
         marginLeft: 8,
         color: appTheme.colors.textSecondary,
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: 'bold',
         textTransform: 'uppercase',
         letterSpacing: 1,
+    },
+    colorLegendContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(15, 23, 42, 0.6)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    colorDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        marginRight: 6,
+    },
+    colorDotText: {
+        color: appTheme.colors.textSecondary,
+        fontSize: 12,
+        fontWeight: '600',
     },
 });

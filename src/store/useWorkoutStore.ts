@@ -11,12 +11,16 @@ interface WorkoutState {
     waterIntakeML: number;
     waterLogs: { id: string; amount: number; timestamp: number }[];
     scheduleOffset: number; // Persistent shift for workouts (e.g. -1 means everything moved back 1 day)
+    gymMorningPromptStatus: 'none' | 'yes' | 'no';
+    gymEveningPromptStatus: 'none' | 'yes' | 'no';
 
     // === Actions ===
     toggleExercise: (id: string) => void;
     setWeight: (id: string, weight: number) => void;
     addWater: (ml: number) => void;
     setScheduleOffset: (offset: number) => void;
+    setGymMorningPromptStatus: (status: 'none' | 'yes' | 'no') => void;
+    setGymEveningPromptStatus: (status: 'none' | 'yes' | 'no') => void;
     resetDailyChecklist: () => void;
     setDismissTempoReminder: (dismiss: boolean) => void;
     checkAndResetAtMidnight: () => void;
@@ -32,6 +36,8 @@ export const useWorkoutStore = create<WorkoutState>()(
             waterIntakeML: 0,
             waterLogs: [],
             scheduleOffset: 0,
+            gymMorningPromptStatus: 'none',
+            gymEveningPromptStatus: 'none',
 
             toggleExercise: (id) =>
                 set((state) => {
@@ -79,6 +85,9 @@ export const useWorkoutStore = create<WorkoutState>()(
                 requestPermissionsAndSchedule(true);
             },
 
+            setGymMorningPromptStatus: (status) => set({ gymMorningPromptStatus: status }),
+            setGymEveningPromptStatus: (status) => set({ gymEveningPromptStatus: status }),
+
             resetDailyChecklist: () =>
                 set({
                     completedExercises: {},
@@ -97,6 +106,11 @@ export const useWorkoutStore = create<WorkoutState>()(
                 // If the date has changed, reset the daily checklist
                 if (lastActiveDate !== currentDate) {
                     resetDailyChecklist();
+                    set({ gymMorningPromptStatus: 'none', gymEveningPromptStatus: 'none' });
+                    // Reset schedule offset on Monday
+                    if (new Date().getDay() === 1) {
+                        set({ scheduleOffset: 0 });
+                    }
                 }
             },
         }),
@@ -134,6 +148,8 @@ export const useWorkoutStore = create<WorkoutState>()(
                 waterIntakeML: state.waterIntakeML,
                 waterLogs: state.waterLogs,
                 scheduleOffset: state.scheduleOffset,
+                gymMorningPromptStatus: state.gymMorningPromptStatus,
+                gymEveningPromptStatus: state.gymEveningPromptStatus,
                 // Optional: you can choose to persist completedExercises if you want them to survive app unloads during the same day. 
                 // We persist it here, but `checkAndResetAtMidnight` handles clearing it on a new day.
                 completedExercises: state.completedExercises,

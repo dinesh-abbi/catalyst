@@ -1,4 +1,5 @@
 import { ExerciseCard } from '@/components/ExerciseCard';
+import { GymPrompt } from '@/components/GymPrompt';
 import { TempoReminder } from '@/components/TempoReminder';
 import { WaterTracker } from '@/components/WaterTracker';
 import { useWorkoutStore } from '@/store/useWorkoutStore';
@@ -168,6 +169,8 @@ export default function HomeScreen() {
                         {!dismissTempoReminder && (
                             <TempoReminder onDismiss={() => setDismissTempoReminder(true)} />
                         )}
+
+                        <GymPrompt />
 
                         {/* Exercise List */}
                         <FlatList
