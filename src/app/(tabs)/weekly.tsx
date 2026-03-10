@@ -1,8 +1,10 @@
 import { useWorkoutStore } from '@/store/useWorkoutStore';
+import appTheme from '@/theme';
 import { Exercise, workoutData, WorkoutDayRaw } from '@/utils/getTodayWorkout';
 import { Feather } from '@expo/vector-icons';
 import React, { memo, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -10,35 +12,36 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 const ReadOnlyExerciseCard = memo(({ exercise }: { exercise: Exercise }) => {
     const isCardio = !!exercise.isCardio;
     return (
-        <View className="bg-backgroundCard rounded-2xl p-5 mb-4 border border-slate-800">
-            <Text className="text-xl font-bold text-textPrimary mb-4">{exercise.name}</Text>
+        <View style={{ backgroundColor: appTheme.colors.backgroundCard, borderColor: 'rgba(51, 65, 85, 0.4)', borderWidth: 1 }} className="rounded-[24px] p-6 mb-4">
+            <View className="flex-row items-center mb-4">
+                <View style={{ width: 4, height: 16, backgroundColor: appTheme.colors.accent, borderRadius: 2, marginRight: 10 }} />
+                <Text style={{ color: appTheme.colors.textPrimary }} className="text-lg font-black tracking-tight flex-1">{exercise.name}</Text>
+            </View>
 
-            <View className="flex-row items-center justify-between bg-backgroundMain rounded-xl p-3 mb-4">
-                <View className="flex-1 flex-row items-center gap-x-6">
-                    <View>
-                        <Text className="text-textSecondary text-xs uppercase font-bold tracking-wider mb-1">
-                            {isCardio ? 'Type' : 'Sets'}
-                        </Text>
-                        <Text className="font-semibold text-lg text-textPrimary">
-                            {isCardio ? exercise.tempo : exercise.sets}
-                        </Text>
+            <View className="flex-row items-center justify-between bg-[#0b0f19] rounded-[18px] p-4 mb-4 border border-slate-800/30">
+                <View className="flex-row items-center flex-1">
+                    <View className="mr-8">
+                        <Text style={{ color: appTheme.colors.textTertiary }} className="text-[10px] font-black tracking-widest uppercase mb-1">{isCardio ? 'TYPE' : 'SETS'}</Text>
+                        <Text style={{ color: appTheme.colors.textPrimary }} className="font-black text-lg">{isCardio ? exercise.tempo : exercise.sets}</Text>
                     </View>
                     <View>
-                        <Text className="text-textSecondary text-xs uppercase font-bold tracking-wider mb-1">
-                            {isCardio ? 'Sets' : 'Reps'}
-                        </Text>
-                        <Text className="font-semibold text-lg text-textPrimary">
-                            {isCardio ? exercise.sets : exercise.reps}
-                        </Text>
+                        <Text style={{ color: appTheme.colors.textTertiary }} className="text-[10px] font-black tracking-widest uppercase mb-1">{isCardio ? 'SETS' : 'REPS'}</Text>
+                        <Text style={{ color: appTheme.colors.textPrimary }} className="font-black text-lg">{isCardio ? exercise.sets : exercise.reps}</Text>
                     </View>
+                </View>
+
+                <View style={{ backgroundColor: '#161e2e', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 }}>
+                    <Text style={{ color: appTheme.colors.accent }} className="text-[10px] font-bold uppercase tracking-widest">{isCardio ? 'CARDIO' : 'STRENGTH'}</Text>
                 </View>
             </View>
 
-            <View className="bg-slate-800/30 rounded-lg p-3">
-                <Text className="text-sm leading-tight text-textSecondary">
-                    <Text className="font-bold">Note:</Text> {exercise.notes}
-                </Text>
-            </View>
+            {exercise.notes && (
+                <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: 12, padding: 12, borderLeftWidth: 3, borderLeftColor: appTheme.colors.accent }}>
+                    <Text style={{ color: appTheme.colors.textSecondary }} className="text-xs italic leading-snug">
+                        {exercise.notes}
+                    </Text>
+                </View>
+            )}
         </View>
     );
 });
@@ -64,65 +67,71 @@ export default function WeeklyOverviewScreen() {
     }).sort((a, b) => a.physicalDayNum - b.physicalDayNum);
 
     return (
-        <SafeAreaView className="flex-1 bg-backgroundMain">
-            <ScrollView className="flex-1 px-5 pt-8" contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
-                <View className="mb-6 flex-row justify-between items-start">
+        <SafeAreaView className="flex-1" style={{ backgroundColor: appTheme.colors.backgroundMain }}>
+            <ScrollView className="flex-1 px-6 pt-10" contentContainerStyle={{ paddingBottom: insets.bottom + 100 }} showsVerticalScrollIndicator={false}>
+                <Animated.View entering={FadeInDown.duration(600)} className="mb-10 flex-row justify-between items-end">
                     <View className="flex-1">
-                        <Text className="text-header uppercase text-3xl font-extrabold tracking-tight mb-2">
-                            Weekly Overview
-                        </Text>
-                        <Text className="text-textSecondary text-sm leading-relaxed mb-4">
-                            Your 7-day training split.
+                        <View className="flex-row items-center mb-1">
+                            <View style={{ width: 12, height: 2, backgroundColor: appTheme.colors.accent, marginRight: 8 }} />
+                            <Text style={{ color: appTheme.colors.accent }} className="text-[10px] font-black tracking-[3px] uppercase">Training Split</Text>
+                        </View>
+                        <Text style={{ color: appTheme.colors.textPrimary }} className="text-4xl font-black tracking-tighter">
+                            WEEKLY
                         </Text>
                     </View>
 
                     {scheduleOffset !== 0 && (
                         <TouchableOpacity
                             onPress={() => setScheduleOffset(0)}
-                            className="bg-accent/20 px-3 py-2 rounded-xl border border-accent/40 flex-row items-center ml-2"
+                            style={{ backgroundColor: 'rgba(56, 189, 248, 0.1)', borderColor: 'rgba(56, 189, 248, 0.2)', borderWidth: 1 }}
+                            className="px-4 py-2 rounded-xl flex-row items-center"
                         >
-                            <Feather name="refresh-ccw" size={14} color="#38bdf8" />
-                            <Text className="text-accent text-xs font-bold ml-1.5 uppercase">
-                                Reset
+                            <Feather name="refresh-ccw" size={12} color={appTheme.colors.accent} />
+                            <Text style={{ color: appTheme.colors.accent }} className="text-[10px] font-black ml-2 uppercase tracking-widest">
+                                RESET
                             </Text>
                         </TouchableOpacity>
                     )}
-                </View>
+                </Animated.View>
 
                 <View>
-                    {shiftedWorkoutData.map((day) => {
+                    {shiftedWorkoutData.map((day, index) => {
                         const isToday = day.physicalDayNum === currentPhysicalDay;
                         return (
-                            <TouchableOpacity
-                                key={day.dayNumber}
-                                activeOpacity={0.7}
-                                onPress={() => setSelectedDay(day)}
-                                className={`mb-4 rounded-2xl p-5 border ${isToday ? 'bg-accent/10 border-accent/60' : 'bg-backgroundCard border-slate-800'}`}
-                            >
-                                <View className="flex-row items-center justify-between mb-1">
-                                    <Text className={`font-bold tracking-wider uppercase text-sm ${isToday ? 'text-accent' : 'text-textSecondary'}`}>
-                                        {day.physicalDayName} {isToday && '(TODAY)'}
+                            <Animated.View key={day.dayNumber} entering={FadeInDown.delay(index * 100).duration(500)}>
+                                <TouchableOpacity
+                                    activeOpacity={0.7}
+                                    onPress={() => setSelectedDay(day)}
+                                    style={{
+                                        backgroundColor: isToday ? 'rgba(56, 189, 248, 0.05)' : appTheme.colors.backgroundCard,
+                                        borderColor: isToday ? 'rgba(56, 189, 248, 0.3)' : 'rgba(51, 65, 85, 0.2)',
+                                        borderWidth: 1,
+                                        marginBottom: 16,
+                                        borderRadius: 24,
+                                        padding: 24
+                                    }}
+                                >
+                                    <View className="flex-row items-center justify-between mb-2">
+                                        <Text style={{ color: isToday ? appTheme.colors.accent : appTheme.colors.textTertiary }} className="font-black tracking-[2px] uppercase text-[10px]">
+                                            {day.physicalDayName} {isToday && '• TODAY'}
+                                        </Text>
+                                        <Text style={{ color: isToday ? appTheme.colors.accent : 'rgba(148, 163, 184, 0.3)' }} className="font-black text-xs uppercase tracking-widest">
+                                            DAY {day.dayNumber}
+                                        </Text>
+                                    </View>
+                                    <Text style={{ color: isToday ? appTheme.colors.textPrimary : 'rgba(248, 250, 252, 0.8)' }} className="text-2xl font-black tracking-tight">
+                                        {day.focus}
                                     </Text>
-                                    <View className="flex-row items-center">
-                                        {scheduleOffset !== 0 && (
-                                            <Text className="text-slate-500 text-xs font-bold uppercase mr-2 tracking-widest">(Was {day.assignedDay})</Text>
-                                        )}
-                                        <Text className={`font-black text-lg ${isToday ? 'text-accent' : 'text-slate-600'}`}>
-                                            Day {day.dayNumber}
-                                        </Text>
-                                    </View>
-                                </View>
-                                <Text className={`text-xl font-bold ${isToday ? 'text-textPrimary' : 'text-slate-300'}`}>
-                                    {day.focus}
-                                </Text>
-                                {day.isRecovery && (
-                                    <View className="mt-3 bg-slate-800/50 self-start px-3 py-1 rounded-full">
-                                        <Text className="text-xs font-semibold text-textSecondary uppercase tracking-widest">
-                                            Recovery Strategy
-                                        </Text>
-                                    </View>
-                                )}
-                            </TouchableOpacity>
+
+                                    {day.isRecovery && (
+                                        <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginTop: 12 }}>
+                                            <Text style={{ color: appTheme.colors.accentSecondary }} className="text-[10px] font-black uppercase tracking-widest">
+                                                RECOVERY DAY
+                                            </Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            </Animated.View>
                         );
                     })}
                 </View>
@@ -130,62 +139,83 @@ export default function WeeklyOverviewScreen() {
 
             <Modal
                 visible={!!selectedDay}
-                animationType="slide"
-                presentationStyle="pageSheet"
-                hardwareAccelerated={true}
+                animationType="fade"
+                transparent={true}
                 onRequestClose={() => setSelectedDay(null)}
             >
-                <View className="flex-1 bg-backgroundMain pt-6 px-5" style={{ paddingBottom: insets.bottom }}>
-                    <View className="flex-row justify-between items-start mb-6 mt-4">
-                        <View className="flex-1 pr-4">
-                            <Text className="text-accent text-sm font-bold tracking-widest uppercase mb-1">{selectedDay?.assignedDay}</Text>
-                            <Text className="text-3xl font-extrabold text-textPrimary leading-tight">{selectedDay?.focus}</Text>
+                <View style={{ flex: 1, backgroundColor: 'rgba(11, 15, 25, 0.98)' }}>
+                    <SafeAreaView className="flex-1 px-6 pt-10">
+                        <View className="flex-row justify-between items-start mb-10">
+                            <View className="flex-1 pr-4">
+                                <View className="flex-row items-center mb-1">
+                                    <View style={{ width: 8, height: 2, backgroundColor: appTheme.colors.accent, marginRight: 6 }} />
+                                    <Text style={{ color: appTheme.colors.accent }} className="text-[10px] font-black tracking-widest uppercase">{selectedDay?.assignedDay}</Text>
+                                </View>
+                                <Text style={{ color: appTheme.colors.textPrimary }} className="text-4xl font-black tracking-tighter">{selectedDay?.focus}</Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={() => setSelectedDay(null)}
+                                style={{ backgroundColor: '#161e2e', width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(51, 65, 85, 0.4)' }}
+                            >
+                                <Feather name="x" size={20} color={appTheme.colors.textPrimary} />
+                            </TouchableOpacity>
                         </View>
-                        <TouchableOpacity
-                            onPress={() => setSelectedDay(null)}
-                            className="bg-slate-800 p-3 rounded-full justify-center items-center"
-                        >
-                            <Text className="text-textPrimary font-bold">✕</Text>
-                        </TouchableOpacity>
-                    </View>
 
-                    {selectedDay && selectedDay.physicalDayNum !== currentPhysicalDay && (
-                        <TouchableOpacity
-                            disabled={isShifting}
-                            onPress={() => {
-                                setIsShifting(true);
-                                setTimeout(() => {
-                                    let newOffset = selectedDay.dayNumber - currentPhysicalDay;
-                                    if (newOffset > 3) newOffset -= 7;
-                                    if (newOffset < -3) newOffset += 7;
+                        {selectedDay && selectedDay.physicalDayNum !== currentPhysicalDay && (
+                            <TouchableOpacity
+                                disabled={isShifting}
+                                onPress={() => {
+                                    setIsShifting(true);
+                                    setTimeout(() => {
+                                        let newOffset = selectedDay.dayNumber - currentPhysicalDay;
+                                        if (newOffset > 3) newOffset -= 7;
+                                        if (newOffset < -3) newOffset += 7;
 
-                                    setScheduleOffset(newOffset);
-                                    setIsShifting(false);
-                                    setSelectedDay(null);
-                                }, 600); // Sleek brief delay
-                            }}
-                            className={`flex-row items-center justify-center py-4 rounded-2xl mb-6 ${isShifting ? 'bg-accent/10 border border-accent/20' : 'bg-accent/20 border border-accent/40'}`}
-                        >
-                            {isShifting ? (
-                                <ActivityIndicator color="#38bdf8" size="small" />
-                            ) : (
-                                <>
-                                    <Feather name="calendar" size={16} color="#38bdf8" style={{ marginRight: 8 }} />
-                                    <Text className="text-accent font-bold text-center uppercase tracking-widest text-xs">
-                                        Make this Today&apos;s Workout
-                                    </Text>
-                                </>
+                                        setScheduleOffset(newOffset);
+                                        setIsShifting(false);
+                                        setSelectedDay(null);
+                                    }, 800);
+                                }}
+                                style={{
+                                    backgroundColor: appTheme.colors.accent,
+                                    paddingVertical: 18,
+                                    borderRadius: 20,
+                                    marginBottom: 32,
+                                    flexDirection: 'row',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    shadowColor: appTheme.colors.accent,
+                                    shadowOffset: { width: 0, height: 8 },
+                                    shadowOpacity: 0.3,
+                                    shadowRadius: 12,
+                                    elevation: 8
+                                }}
+                            >
+                                {isShifting ? (
+                                    <ActivityIndicator color="#fff" size="small" />
+                                ) : (
+                                    <>
+                                        <Feather name="zap" size={16} color="#fff" style={{ marginRight: 10 }} />
+                                        <Text className="text-white font-black uppercase tracking-widest text-xs">
+                                            ACTIVATE THIS WORKOUT
+                                        </Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        )}
+
+                        <FlatList
+                            data={selectedDay?.exercises || []}
+                            keyExtractor={item => item.id}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={{ paddingBottom: 100 }}
+                            renderItem={({ item, index }) => (
+                                <Animated.View entering={FadeInRight.delay(index * 50)}>
+                                    <ReadOnlyExerciseCard exercise={item} />
+                                </Animated.View>
                             )}
-                        </TouchableOpacity>
-                    )}
-
-                    <FlatList
-                        data={selectedDay?.exercises || []}
-                        keyExtractor={item => item.id}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: 40 }}
-                        renderItem={({ item }) => <ReadOnlyExerciseCard exercise={item} />}
-                    />
+                        />
+                    </SafeAreaView>
                 </View>
             </Modal>
         </SafeAreaView>

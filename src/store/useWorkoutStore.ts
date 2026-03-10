@@ -46,18 +46,6 @@ export const useWorkoutStore = create<WorkoutState>()(
                         ...state.completedExercises,
                         [id]: isCompletedNow,
                     };
-
-                    // Conditionally fire notification if this was the last exercise checked for today
-                    if (isCompletedNow) {
-                        const { getTodayWorkout } = require('@/utils/getTodayWorkout');
-                        const todayWorkout = getTodayWorkout();
-                        const allDone = todayWorkout.exercises.every((ex: { id: string }) => nextCompleted[ex.id]);
-                        if (allDone) {
-                            const { triggerWorkoutCompleteNotification } = require('@/utils/notifications');
-                            triggerWorkoutCompleteNotification();
-                        }
-                    }
-
                     return { completedExercises: nextCompleted };
                 }),
 
@@ -80,9 +68,6 @@ export const useWorkoutStore = create<WorkoutState>()(
 
             setScheduleOffset: (offset: number) => {
                 set({ scheduleOffset: offset });
-                // Re-schedule alarms to match the new workout day layout for each physical day
-                const { requestPermissionsAndSchedule } = require('@/utils/notifications');
-                requestPermissionsAndSchedule(true);
             },
 
             setGymMorningPromptStatus: (status) => set({ gymMorningPromptStatus: status }),

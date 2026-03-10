@@ -1,9 +1,16 @@
 import appTheme from '@/theme';
 import { Exercise } from '@/utils/getTodayWorkout';
-import { CheckCircle2, Circle } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 import React, { memo, useEffect } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, {
+    interpolateColor,
+    useAnimatedStyle,
+    useSharedValue,
+    withSequence,
+    withSpring,
+    withTiming
+} from 'react-native-reanimated';
 
 interface ExerciseCardProps {
     exercise: Exercise;
@@ -23,123 +30,130 @@ export const ExerciseCard = memo(function ExerciseCard({
     index,
 }: ExerciseCardProps) {
     const scale = useSharedValue(1);
-    const checkedScale = useSharedValue(isCompleted ? 1 : 0);
-
-    const ITEM_SIZE = 180; // Approximate height + margin of a card
+    const checkedProgress = useSharedValue(isCompleted ? 1 : 0);
 
     useEffect(() => {
         if (isCompleted) {
             scale.value = withSequence(
-                withTiming(1.2, { duration: 100 }),
-                withSpring(1, { damping: 10, stiffness: 200 })
+                withTiming(1.15, { duration: 150 }),
+                withSpring(1, { damping: 12, stiffness: 200 })
             );
-            checkedScale.value = withTiming(1, { duration: 300 });
+            checkedProgress.value = withTiming(1, { duration: 400 });
         } else {
-            scale.value = withTiming(1, { duration: 100 });
-            checkedScale.value = withTiming(0, { duration: 300 });
+            scale.value = withTiming(1, { duration: 150 });
+            checkedProgress.value = withTiming(0, { duration: 400 });
         }
-    }, [isCompleted, scale, checkedScale]);
+    }, [isCompleted]);
 
-    const animatedCheckStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ scale: scale.value }]
-        };
-    });
+    const animatedCheckStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+        backgroundColor: interpolateColor(
+            checkedProgress.value,
+            [0, 1],
+            ['transparent', appTheme.colors.accent]
+        ),
+        borderColor: interpolateColor(
+            checkedProgress.value,
+            [0, 1],
+            [appTheme.colors.border, appTheme.colors.accent]
+        ),
+    }));
 
     const animatedCardStyle = useAnimatedStyle(() => {
-        const backgroundColor = interpolateColor(
-            checkedScale.value,
-            [0, 1],
-            [appTheme.colors.backgroundCard, 'rgba(34, 197, 94, 0.1)'] // Tailwind bg-backgroundCard to bg-green-500/10
-        );
-
-        const borderColor = interpolateColor(
-            checkedScale.value,
-            [0, 1],
-            ['#1e293b', 'rgba(34, 197, 94, 0.5)'] // Tailwind border-slate-800 to border-green-500/50
-        );
-
         return {
-            backgroundColor,
-            borderColor,
+            backgroundColor: interpolateColor(
+                checkedProgress.value,
+                [0, 1],
+                [appTheme.colors.backgroundCard, appTheme.colors.blockFill]
+            ),
+            borderColor: interpolateColor(
+                checkedProgress.value,
+                [0, 1],
+                [appTheme.colors.border, appTheme.colors.accent]
+            ),
         };
     });
 
     const isCardio = !!exercise.isCardio;
-    const inputSuffix = isCardio ? 'min' : 'kg';
+    const inputSuffix = isCardio ? 'MIN' : 'KG';
 
     return (
-        <Animated.View style={[animatedCardStyle, { borderWidth: 1 }]} className={`rounded-2xl p-5 mb-4`}>
-
-            {/* Header Row: Title and Checkbox on the right */}
-            <View className="flex-row items-start justify-between mb-4">
-                <Text className={`text-xl font-bold flex-1 ${isCompleted ? 'text-green-500/70 line-through' : 'text-textPrimary'}`}>
-                    {exercise.name}
-                </Text>
+        <Animated.View
+            style={[animatedCardStyle, { borderWidth: 1, padding: 20, marginBottom: 16 }]}
+        >
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+                <View style={{ flex: 1, marginRight: 16 }}>
+                    <Text
+                        style={{ color: isCompleted ? appTheme.colors.textTertiary : appTheme.colors.textPrimary, fontFamily: appTheme.typography.fontFamily.heading, fontSize: 24, textTransform: 'uppercase', letterSpacing: -0.5, textDecorationLine: isCompleted ? 'line-through' : 'none' }}
+                    >
+                        {exercise.name}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                        <View style={{ width: 8, height: 8, backgroundColor: appTheme.colors.accent, marginRight: 8 }} />
+                        <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, textTransform: 'uppercase', letterSpacing: 2 }}>
+                            {isCardio ? 'ENDURANCE_PROTO' : 'HYPERTROPHY_PROTO'}
+                        </Text>
+                    </View>
+                </View>
 
                 <TouchableOpacity
                     onPress={onToggleComplete}
-                    className="ml-4 flex-row items-center justify-center p-1"
-                    activeOpacity={0.7}
+                    style={{ height: 40, width: 40, alignItems: 'center', justifyContent: 'center' }}
+                    activeOpacity={1}
                 >
-                    <Animated.View style={animatedCheckStyle}>
-                        {isCompleted ? (
-                            <CheckCircle2 color="#22c55e" size={28} />
-                        ) : (
-                            <Circle color={appTheme.colors.textSecondary} size={28} />
+                    <Animated.View style={[animatedCheckStyle, { width: 24, height: 24, borderWidth: 2, justifyContent: 'center', alignItems: 'center' }]}>
+                        {isCompleted && (
+                            <Check color="#000000" size={16} strokeWidth={4} />
                         )}
                     </Animated.View>
                 </TouchableOpacity>
             </View>
 
-            {/* Details Row: Sets, Reps, Logging */}
-            <View className="flex-row items-center justify-between bg-backgroundMain rounded-xl p-3 mb-4">
-                <View className="flex-1 flex-row items-center gap-x-6">
-                    <View>
-                        <Text className="text-textSecondary text-xs uppercase font-bold tracking-wider mb-1">
-                            {isCardio ? 'Type' : 'Sets'}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: appTheme.colors.blockFill, borderWidth: 1, borderColor: appTheme.colors.blockBorder, padding: 16, marginBottom: exercise.notes ? 16 : 0 }}>
+                <View style={{ flexDirection: 'row', flex: 1 }}>
+                    <View style={{ marginRight: 32 }}>
+                        <Text style={{ color: appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.mono, fontSize: 10, letterSpacing: 2, marginBottom: 4 }}>
+                            {isCardio ? 'TYPE' : 'SETS'}
                         </Text>
-                        <Text className={`font-semibold text-lg ${isCompleted ? 'text-textSecondary' : 'text-textPrimary'}`}>
+                        <Text style={{ color: isCompleted ? appTheme.colors.textTertiary : appTheme.colors.textPrimary, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 20 }}>
                             {isCardio ? exercise.tempo : exercise.sets}
                         </Text>
                     </View>
                     <View>
-                        <Text className="text-textSecondary text-xs uppercase font-bold tracking-wider mb-1">
-                            {isCardio ? 'Sets' : 'Reps'}
+                        <Text style={{ color: appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.mono, fontSize: 10, letterSpacing: 2, marginBottom: 4 }}>
+                            {isCardio ? 'TIME' : 'REPS'}
                         </Text>
-                        <Text className={`font-semibold text-lg ${isCompleted ? 'text-textSecondary' : 'text-textPrimary'}`}>
+                        <Text style={{ color: isCompleted ? appTheme.colors.textTertiary : appTheme.colors.textPrimary, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 20 }}>
                             {isCardio ? exercise.sets : exercise.reps}
                         </Text>
                     </View>
                 </View>
 
-                {/* Log Input */}
-                <View className="w-24 border border-slate-700 bg-backgroundCard rounded-lg px-3 py-1 flex-row items-center">
+                <View style={{ backgroundColor: appTheme.colors.backgroundMain, borderWidth: 1, borderColor: appTheme.colors.border, width: 100, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}>
                     <TextInput
-                        className={`flex-1 text-right text-lg font-bold ${isCompleted ? 'text-textSecondary' : 'text-textPrimary'}`}
+                        style={{ color: isCompleted ? appTheme.colors.textTertiary : appTheme.colors.accent, flex: 1, textAlign: 'right', fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 18, padding: 0 }}
                         keyboardType="numeric"
-                        placeholder="—"
-                        placeholderTextColor={appTheme.colors.textSecondary}
+                        placeholder="--"
+                        placeholderTextColor={appTheme.colors.textTertiary}
                         value={loggedWeight ? loggedWeight.toString() : ''}
                         onChangeText={(val) => {
                             const num = parseFloat(val);
-                            if (!isNaN(num)) {
-                                onUpdateWeight(num);
-                            } else if (val === '') {
-                                onUpdateWeight(0);
-                            }
+                            onUpdateWeight(!isNaN(num) ? num : 0);
                         }}
                     />
-                    <Text className="text-textSecondary font-medium ml-1 text-sm mt-1">{inputSuffix}</Text>
+                    <Text style={{ color: appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, marginLeft: 6, marginTop: 4 }}>
+                        {inputSuffix}
+                    </Text>
                 </View>
             </View>
 
-            {/* Notes */}
-            <View className="bg-slate-800/30 rounded-lg p-3">
-                <Text className={`text-sm leading-tight ${isCompleted ? 'text-textSecondary line-through' : 'text-textSecondary'}`}>
-                    <Text className="font-bold">Note:</Text> {exercise.notes}
-                </Text>
-            </View>
+            {exercise.notes && (
+                <View style={{ padding: 12, borderLeftWidth: 2, borderLeftColor: appTheme.colors.accent, backgroundColor: appTheme.colors.blockFill }}>
+                    <Text style={{ color: appTheme.colors.textSecondary, fontFamily: appTheme.typography.fontFamily.mono, fontSize: 10, lineHeight: 16, letterSpacing: 0.5 }}>
+                        /* {exercise.notes} */
+                    </Text>
+                </View>
+            )}
         </Animated.View>
     );
 });

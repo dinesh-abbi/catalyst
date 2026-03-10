@@ -3,11 +3,73 @@ import { GymPrompt } from '@/components/GymPrompt';
 import { TempoReminder } from '@/components/TempoReminder';
 import { WaterTracker } from '@/components/WaterTracker';
 import { useWorkoutStore } from '@/store/useWorkoutStore';
+import appTheme from '@/theme';
 import { getTodayWorkout } from '@/utils/getTodayWorkout';
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+    FadeInDown,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring
+} from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const SegmentedControl = ({ activeTab, onTabChange }: { activeTab: string, onTabChange: (tab: 'exercises' | 'water') => void }) => {
+    const underlineX = useSharedValue(activeTab === 'exercises' ? 0 : (SCREEN_WIDTH - 40) / 2);
+
+    useEffect(() => {
+        underlineX.value = withSpring(activeTab === 'exercises' ? 0 : (SCREEN_WIDTH - 40) / 2, {
+            damping: 20,
+            stiffness: 250 // Snappier, mechanical spring
+        });
+    }, [activeTab]);
+
+    const underlineStyle = useAnimatedStyle(() => ({
+        transform: [{ translateX: underlineX.value }],
+    }));
+
+    return (
+        <View style={{ flexDirection: 'row', position: 'relative', height: 48, marginBottom: 20, marginHorizontal: 20, backgroundColor: appTheme.colors.blockFill, borderWidth: 1, borderColor: appTheme.colors.blockBorder }}>
+            <TouchableOpacity
+                onPress={() => onTabChange('exercises')}
+                style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+                activeOpacity={1}
+            >
+                <Text style={{
+                    color: activeTab === 'exercises' ? appTheme.colors.textPrimary : appTheme.colors.textTertiary,
+                    fontFamily: appTheme.typography.fontFamily.monoBold,
+                    fontSize: 12,
+                    letterSpacing: 2
+                }}>[ EXERCISES ]</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+                onPress={() => onTabChange('water')}
+                style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+                activeOpacity={1}
+            >
+                <Text style={{
+                    color: activeTab === 'water' ? appTheme.colors.textPrimary : appTheme.colors.textTertiary,
+                    fontFamily: appTheme.typography.fontFamily.monoBold,
+                    fontSize: 12,
+                    letterSpacing: 2
+                }}>[ HYDRATION ]</Text>
+            </TouchableOpacity>
+
+            {/* Stark Animated Line */}
+            <Animated.View
+                style={[
+                    { position: 'absolute', bottom: -1, width: '50%', height: 2, backgroundColor: appTheme.colors.accent, zIndex: 10, shadowColor: appTheme.colors.accent, shadowOpacity: 0.8, shadowRadius: 5 },
+                    underlineStyle
+                ]}
+            />
+        </View>
+    );
+};
 
 export default function HomeScreen() {
     const {
@@ -24,7 +86,6 @@ export default function HomeScreen() {
     const params = useLocalSearchParams<{ tab?: string }>();
     const [activeTab, setActiveTab] = useState<'exercises' | 'water'>('exercises');
 
-    // Physical day calculation (1-7)
     const currentPhysicalDay = useMemo(() => {
         const jsDay = new Date().getDay();
         return jsDay === 0 ? 7 : jsDay;
@@ -35,12 +96,9 @@ export default function HomeScreen() {
     }, [currentPhysicalDay, scheduleOffset]);
 
     const scrollViewRef = useRef<ScrollView>(null);
-    const screenWidth = Dimensions.get('window').width;
 
-    // Reset to physical day when app comes to foreground on a new day
     useEffect(() => {
         if (params.tab === 'water' || params.tab === 'exercises') {
-            // Need a tiny delay for ScrollView to mount/layout its dimensions
             setTimeout(() => {
                 scrollToTab(params.tab as 'water' | 'exercises');
             }, 100);
@@ -53,30 +111,26 @@ export default function HomeScreen() {
                 checkAndResetAtMidnight();
             }
         });
-
-        // Trigger on mount as well to ensure correctness upon cold start
         checkAndResetAtMidnight();
-
-        return () => {
-            subscription.remove();
-        };
+        return () => subscription.remove();
     }, [checkAndResetAtMidnight, effectiveToday]);
 
-    // Fetch the dynamically selected day instead of hard physical day
     const todayWorkout = useMemo(() => getTodayWorkout(effectiveToday), [effectiveToday]);
 
-    // Custom date formatting (e.g., "Monday, Oct 24")
     const formattedDate = useMemo(() => new Intl.DateTimeFormat('en-US', {
+        weekday: 'long',
         month: 'short',
         day: 'numeric'
     }).format(new Date()), []);
 
-    // Tab Navigation Logic
     const scrollToTab = (tab: 'exercises' | 'water') => {
+        if (activeTab !== tab) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
         setActiveTab(tab);
         if (scrollViewRef.current) {
             scrollViewRef.current.scrollTo({
-                x: tab === 'exercises' ? 0 : screenWidth,
+                x: tab === 'exercises' ? 0 : SCREEN_WIDTH,
                 animated: true
             });
         }
@@ -84,12 +138,10 @@ export default function HomeScreen() {
 
     const handleMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
         const offsetX = e.nativeEvent.contentOffset.x;
-        const newIndex = Math.round(offsetX / screenWidth);
+        const newIndex = Math.round(offsetX / SCREEN_WIDTH);
         setActiveTab(newIndex === 0 ? 'exercises' : 'water');
     };
 
-
-    // Memoize the handle functions deeply to avoid unnecessary re-renders of ExerciseCard
     const handleToggleComplete = useCallback((id: string) => {
         toggleExercise(id);
     }, [toggleExercise]);
@@ -100,59 +152,67 @@ export default function HomeScreen() {
 
     const renderExercise = useCallback(({ item, index }: any) => {
         return (
-            <ExerciseCard
-                exercise={item}
-                index={index}
-                isCompleted={!!completedExercises[item.id]}
-                loggedWeight={loggedWeights[item.id]}
-                onToggleComplete={() => handleToggleComplete(item.id)}
-                onUpdateWeight={(weight) => handleUpdateWeight(item.id, weight)}
-            />
+            <Animated.View entering={FadeInDown.delay(index * 75).duration(400).springify().damping(25).stiffness(250)}>
+                <ExerciseCard
+                    exercise={item}
+                    index={index}
+                    isCompleted={!!completedExercises[item.id]}
+                    loggedWeight={loggedWeights[item.id]}
+                    onToggleComplete={() => handleToggleComplete(item.id)}
+                    onUpdateWeight={(weight) => handleUpdateWeight(item.id, weight)}
+                />
+            </Animated.View>
         );
     }, [completedExercises, loggedWeights, handleToggleComplete, handleUpdateWeight]);
 
     const renderEmptyComponent = useCallback(() => (
-        <View className="flex-1 items-center justify-center mt-20">
-            <Text className="text-textSecondary text-lg text-center">
-                Awesome! Today is an active recovery day or rest day.{'\n'}
-                Check your specific instructions.
+        <View className="flex-1 items-center justify-center mt-20 px-10">
+            <Text className="text-textSecondary text-xl font-bold text-center mb-2">RECOVERY DAY</Text>
+            <Text className="text-textTertiary text-base text-center leading-relaxed">
+                Your muscles grow during rest. Focus on hydration and mobility today.
             </Text>
         </View>
     ), []);
 
     return (
-        <SafeAreaView className="flex-1 bg-backgroundMain">
-            <View className="flex-1 pt-8">
+        <SafeAreaView className="flex-1" style={{ backgroundColor: appTheme.colors.backgroundMain }}>
+            <View className="flex-1 pt-4">
 
-                {/* Header Section (Padding matched to tab buttons) */}
-                <View className="mb-4 px-5">
-                    <Text className="text-textSecondary text-sm font-medium tracking-widest uppercase mb-1">
-                        TODAY • {formattedDate}
+                {/* Neo-Technical Header Section */}
+                <View style={{ marginBottom: 24, paddingHorizontal: 20 }}>
+                    <Text style={{
+                        color: appTheme.colors.textSecondary,
+                        fontFamily: appTheme.typography.fontFamily.mono,
+                        fontSize: 10,
+                        letterSpacing: 2,
+                        marginBottom: 4,
+                        textTransform: 'uppercase'
+                    }}>
+                        // {formattedDate}
                     </Text>
-
-                    {/* Header: Title ONLY */}
-                    <View className="flex-row items-center justify-center">
-                        <Text className="text-accent text-2xl font-extrabold tracking-tight leading-tight text-center" numberOfLines={1}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{
+                            color: appTheme.colors.textPrimary,
+                            ...appTheme.typography.h1,
+                            fontSize: 34,
+                            textTransform: 'uppercase'
+                        }}>
                             {todayWorkout.title}
                         </Text>
+                        <View style={{
+                            backgroundColor: appTheme.colors.blockFill,
+                            paddingVertical: 4,
+                            paddingHorizontal: 12,
+                            borderWidth: 1,
+                            borderColor: appTheme.colors.accent,
+                        }}>
+                            <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, letterSpacing: 1 }}>[ ACTIVE ]</Text>
+                        </View>
                     </View>
                 </View>
 
-                {/* Top Tabs */}
-                <View className="flex-row border-b border-slate-800 mb-6 px-5">
-                    <TouchableOpacity
-                        onPress={() => scrollToTab('exercises')}
-                        className={`flex-1 py-3 items-center border-b-2 ${activeTab === 'exercises' ? 'border-sky-400' : 'border-transparent'}`}
-                    >
-                        <Text className={`font-bold ${activeTab === 'exercises' ? 'text-sky-400' : 'text-slate-400'}`}>Exercises</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => scrollToTab('water')}
-                        className={`flex-1 py-3 items-center border-b-2 ${activeTab === 'water' ? 'border-sky-400' : 'border-transparent'}`}
-                    >
-                        <Text className={`font-bold ${activeTab === 'water' ? 'text-sky-400' : 'text-slate-400'}`}>Water</Text>
-                    </TouchableOpacity>
-                </View>
+                {/* Custom Segmented Control */}
+                <SegmentedControl activeTab={activeTab} onTabChange={scrollToTab} />
 
                 {/* Swipeable Content Area */}
                 <ScrollView
@@ -164,30 +224,26 @@ export default function HomeScreen() {
                     className="flex-1"
                 >
                     {/* Exercises View */}
-                    <View style={{ width: screenWidth }} className="px-5">
-                        {/* Tempo Reminder Banner */}
+                    <View style={{ width: SCREEN_WIDTH }} className="px-5">
                         {!dismissTempoReminder && (
                             <TempoReminder onDismiss={() => setDismissTempoReminder(true)} />
                         )}
 
                         <GymPrompt />
 
-                        {/* Exercise List */}
                         <FlatList
                             data={todayWorkout.exercises}
                             keyExtractor={(item) => item.id}
                             showsVerticalScrollIndicator={false}
-                            contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+                            contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
                             ListEmptyComponent={renderEmptyComponent}
                             renderItem={renderExercise}
-                            initialNumToRender={5}
-                            windowSize={5}
-                            maxToRenderPerBatch={5}
+                            removeClippedSubviews={false} // Important for layout animations
                         />
                     </View>
 
                     {/* Water Tracker View */}
-                    <View style={{ width: screenWidth }}>
+                    <View style={{ width: SCREEN_WIDTH }}>
                         <WaterTracker />
                     </View>
                 </ScrollView>

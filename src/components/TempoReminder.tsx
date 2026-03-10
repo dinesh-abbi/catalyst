@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import appTheme from '@/theme';
 import { X } from 'lucide-react-native';
+import React from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
 
 interface TempoReminderProps {
     onDismiss: () => void;
@@ -8,17 +9,17 @@ interface TempoReminderProps {
 
 export function TempoReminder({ onDismiss }: TempoReminderProps) {
     return (
-        <View className="flex-row items-center justify-between bg-accent/20 border border-accent/50 p-4 rounded-xl mb-6">
-            <View className="flex-1 mr-4">
-                <Text className="text-accent font-bold text-sm tracking-wider uppercase mb-1">Tempo Rule</Text>
-                <Text className="text-textPrimary font-semibold text-base">3:1:2:1</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: appTheme.colors.blockFill, borderWidth: 1, borderColor: appTheme.colors.border, padding: 16, marginBottom: 24 }}>
+            <View style={{ flex: 1, marginRight: 16 }}>
+                <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>[ SYSTEM_TEMPO_RULE ]</Text>
+                <Text style={{ color: appTheme.colors.textPrimary, fontFamily: appTheme.typography.fontFamily.heading, fontSize: 16, textTransform: 'uppercase' }}>3 : 1 : 2 : 1</Text>
             </View>
             <TouchableOpacity
                 onPress={onDismiss}
-                className="p-2 bg-backgroundMain/50 rounded-full"
-                activeOpacity={0.7}
+                style={{ padding: 8, borderWidth: 1, borderColor: appTheme.colors.border }}
+                activeOpacity={1}
             >
-                <X size={20} color="#e63946" strokeWidth={2.5} />
+                <X size={20} color={appTheme.colors.accentSecondary} strokeWidth={2} />
             </TouchableOpacity>
         </View>
     );

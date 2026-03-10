@@ -1,8 +1,16 @@
 import { useWorkoutStore } from '@/store/useWorkoutStore';
 import appTheme from '@/theme';
-import { Feather, Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+    interpolate,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring
+} from 'react-native-reanimated';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 function HydrationClock({ logs }: { logs: { id: string; amount: number; timestamp: number }[] }) {
     const [time, setTime] = useState(new Date());
@@ -25,165 +33,66 @@ function HydrationClock({ logs }: { logs: { id: string; amount: number; timestam
         ) {
             const hour = logDate.getHours();
             const slot = hour % 12;
-            if (hour < 12) {
-                amAmounts[slot] += log.amount;
-            } else {
-                pmAmounts[slot] += log.amount;
-            }
+            if (hour < 12) amAmounts[slot] += log.amount;
+            else pmAmounts[slot] += log.amount;
         }
     });
 
-    const CLOCK_SIZE = 280;
-    const BORDER_WIDTH = 6;
-    const RADIUS = CLOCK_SIZE / 2;
-    const CENTER = RADIUS - BORDER_WIDTH;
+    const CLOCK_SIZE = 260;
+    const CENTER = CLOCK_SIZE / 2;
 
-    const OUTER_DISTANCE = CENTER - 26;
-    const INNER_DISTANCE = CENTER - 65; // Inner ring for AM
-
-    const colors = [
-        { bg: 'rgba(6, 182, 212, 0.15)', border: 'rgba(6, 182, 212, 0.4)', icon: '#06B6D4' }, // Cyan - 1x (250ml)
-        { bg: 'rgba(59, 130, 246, 0.15)', border: 'rgba(59, 130, 246, 0.4)', icon: '#3B82F6' }, // Blue - 2x (500ml)
-        { bg: 'rgba(139, 92, 246, 0.15)', border: 'rgba(139, 92, 246, 0.4)', icon: '#8B5CF6' }  // Purple - 3x+ (750ml+)
-    ];
-
-    const allDrops = [];
+    const allBlips = [];
     for (let i = 0; i < 12; i++) {
         const angleRad = (i * 30 - 90) * (Math.PI / 180);
+        const pmX = CENTER + (CENTER - 20) * Math.cos(angleRad);
+        const pmY = CENTER + (CENTER - 20) * Math.sin(angleRad);
+        const amX = CENTER + (CENTER - 45) * Math.cos(angleRad);
+        const amY = CENTER + (CENTER - 45) * Math.sin(angleRad);
 
-        // 1. PM Ring (Outer)
-        const pmAmount = pmAmounts[i];
-        if (pmAmount === 0) {
-            allDrops.push(
-                <View key={`PM-empty-${i}`} style={{ position: 'absolute', left: CENTER + OUTER_DISTANCE * Math.cos(angleRad) - 16, top: CENTER + OUTER_DISTANCE * Math.sin(angleRad) - 16, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}>
-                    <Ionicons name="water-outline" size={14} color="#334155" />
-                </View>
+        if (pmAmounts[i] > 0) {
+            allBlips.push(
+                <View key={`PM-${i}`} style={[styles.clockBlip, { left: pmX - 2, top: pmY - 6, transform: [{ rotate: `${i * 30}deg` }], backgroundColor: appTheme.colors.accentSecondary }]} />
             );
-        } else {
-            const dropCount = Math.max(1, Math.min(3, Math.ceil(pmAmount / 250)));
-            const cx = CENTER + OUTER_DISTANCE * Math.cos(angleRad);
-            const cy = CENTER + OUTER_DISTANCE * Math.sin(angleRad);
-
-            for (let d = 0; d < dropCount; d++) {
-                const offsetX = (d - (dropCount - 1) / 2) * 8;
-                const offsetY = (d - (dropCount - 1) / 2) * 4;
-                const colorTheme = colors[d % colors.length];
-
-                allDrops.push(
-                    <View key={`PM-filled-${i}-${d}`} style={{
-                        position: 'absolute',
-                        left: cx + offsetX - 16,
-                        top: cy + offsetY - 16,
-                        width: 32,
-                        height: 32,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        zIndex: d
-                    }}>
-                        <View style={[styles.clockFilledDrop, { backgroundColor: colorTheme.bg, borderColor: colorTheme.border }]}>
-                            <Ionicons name="water" size={16} color={colorTheme.icon} />
-                        </View>
-                    </View>
-                );
-            }
         }
-
-        // 2. AM Ring (Inner)
-        const amAmount = amAmounts[i];
-        if (amAmount === 0) {
-            allDrops.push(
-                <View key={`AM-empty-${i}`} style={{ position: 'absolute', left: CENTER + INNER_DISTANCE * Math.cos(angleRad) - 12, top: CENTER + INNER_DISTANCE * Math.sin(angleRad) - 12, width: 24, height: 24, justifyContent: 'center', alignItems: 'center' }}>
-                    <Ionicons name="water-outline" size={10} color="#1E293B" />
-                </View>
+        if (amAmounts[i] > 0) {
+            allBlips.push(
+                <View key={`AM-${i}`} style={[styles.clockBlip, { left: amX - 2, top: amY - 6, transform: [{ rotate: `${i * 30}deg` }], backgroundColor: appTheme.colors.accentTertiary }]} />
             );
-        } else {
-            const dropCount = Math.max(1, Math.min(3, Math.ceil(amAmount / 250)));
-            const cx = CENTER + INNER_DISTANCE * Math.cos(angleRad);
-            const cy = CENTER + INNER_DISTANCE * Math.sin(angleRad);
-
-            for (let d = 0; d < dropCount; d++) {
-                const offsetX = (d - (dropCount - 1) / 2) * 6;
-                const offsetY = (d - (dropCount - 1) / 2) * 3;
-                const colorTheme = colors[d % colors.length];
-
-                allDrops.push(
-                    <View key={`AM-filled-${i}-${d}`} style={{
-                        position: 'absolute',
-                        left: cx + offsetX - 12,
-                        top: cy + offsetY - 12,
-                        width: 24,
-                        height: 24,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        zIndex: d
-                    }}>
-                        <View style={[styles.clockFilledDrop, {
-                            width: 24, height: 24, borderRadius: 12, borderWidth: 0.5,
-                            backgroundColor: colorTheme.bg, borderColor: colorTheme.border
-                        }]}>
-                            <Ionicons name="water" size={12} color={colorTheme.icon} />
-                        </View>
-                    </View>
-                );
-            }
         }
     }
 
-    const h = time.getHours();
-    const m = time.getMinutes();
     const s = time.getSeconds();
-
-    const secondAngle = `${s * 6}deg`;
-    const minuteAngle = `${m * 6 + s * 0.1}deg`;
-    const hourAngle = `${(h % 12) * 30 + m * 0.5}deg`;
+    const m = time.getMinutes();
+    const h = time.getHours();
 
     return (
         <View style={styles.clockContainer}>
-            <Text style={styles.clockHeader}>Hydration Clock</Text>
-            <View style={styles.clockFace}>
-                {/* AM & PM Droplets */}
-                {allDrops}
+            <View style={styles.clockOuterRing}>
+                <View style={styles.clockFace}>
+                    {/* Crosshairs for stark radar look */}
+                    <View style={styles.crosshairVertical} />
+                    <View style={styles.crosshairHorizontal} />
 
-                {/* Hour Hand */}
-                <View style={[styles.handContainer, { transform: [{ rotate: hourAngle }] }]}>
-                    <View style={styles.hourHand} />
-                </View>
+                    {allBlips}
 
-                {/* Minute Hand */}
-                <View style={[styles.handContainer, { transform: [{ rotate: minuteAngle }] }]}>
-                    <View style={styles.minuteHand} />
-                </View>
-
-                {/* Second Hand */}
-                <View style={[styles.handContainer, { transform: [{ rotate: secondAngle }] }]}>
-                    <View style={styles.secondHand} />
-                </View>
-
-                {/* Center dot */}
-                <View style={styles.centerDotOuter}>
-                    <View style={styles.centerDotInner} />
+                    {/* Industrial Hands */}
+                    <View style={[styles.handContainer, { transform: [{ rotate: `${h * 30 + m * 0.5}deg` }] }]}><View style={styles.hourHand} /></View>
+                    <View style={[styles.handContainer, { transform: [{ rotate: `${m * 6}deg` }] }]}><View style={styles.minuteHand} /></View>
+                    <View style={[styles.handContainer, { transform: [{ rotate: `${s * 6}deg` }] }]}><View style={styles.secondHand} /></View>
+                    <View style={styles.centerSquareOuter}><View style={styles.centerSquareInner} /></View>
                 </View>
             </View>
 
             <View style={styles.clockLegendsWrapper}>
                 <View style={styles.clockLegendContainer}>
-                    <View style={[styles.clockLegend, { marginRight: 8 }]}>
-                        <Ionicons name="water" size={12} color={appTheme.colors.accent} />
-                        <Text style={styles.clockLegendText}>AM</Text>
+                    <View style={styles.legendItem}>
+                        <View style={[styles.legendSquare, { backgroundColor: appTheme.colors.accentSecondary }]} />
+                        <Text style={styles.legendText}>PM_DATA</Text>
                     </View>
-                    <View style={styles.clockLegend}>
-                        <Ionicons name="water" size={16} color={appTheme.colors.accent} />
-                        <Text style={styles.clockLegendText}>PM</Text>
+                    <View style={styles.legendItem}>
+                        <View style={[styles.legendSquare, { backgroundColor: appTheme.colors.accentTertiary }]} />
+                        <Text style={styles.legendText}>AM_DATA</Text>
                     </View>
-                </View>
-
-                <View style={styles.colorLegendContainer}>
-                    <View style={[styles.colorDot, { backgroundColor: '#06B6D4' }]} />
-                    <Text style={styles.colorDotText}>1x</Text>
-                    <View style={[styles.colorDot, { backgroundColor: '#3B82F6', marginLeft: 12 }]} />
-                    <Text style={styles.colorDotText}>2x</Text>
-                    <View style={[styles.colorDot, { backgroundColor: '#8B5CF6', marginLeft: 12 }]} />
-                    <Text style={styles.colorDotText}>3x+</Text>
                 </View>
             </View>
         </View>
@@ -193,353 +102,116 @@ function HydrationClock({ logs }: { logs: { id: string; amount: number; timestam
 export function WaterTracker() {
     const { waterIntakeML, addWater, waterLogs } = useWorkoutStore();
     const GOAL_ML = 2500;
+    const BAR_WIDTH = 280;
 
-    const clampedAmount = Math.max(0, Math.min(waterIntakeML, GOAL_ML));
-    const percentage = Math.round((clampedAmount / GOAL_ML) * 100);
-
-    const TANK_HEIGHT = 200;
-
-    // Use a reference up to 1 for easier calculation natively
-    const fillAnim = useRef(new Animated.Value(clampedAmount / GOAL_ML)).current;
+    const fillProgress = useSharedValue(Math.max(0, Math.min(waterIntakeML / GOAL_ML, 1)));
 
     useEffect(() => {
-        Animated.spring(fillAnim, {
-            toValue: clampedAmount / GOAL_ML,
-            friction: 7,
-            tension: 40,
-            useNativeDriver: true,
-        }).start();
-    }, [clampedAmount, fillAnim, GOAL_ML]);
+        fillProgress.value = withSpring(Math.max(0, Math.min(waterIntakeML / GOAL_ML, 1)), {
+            damping: 20,
+            stiffness: 150
+        });
+    }, [waterIntakeML]);
 
-    // Translate Y pushes the "fill" layer down. 0 means full to the top. TANK_HEIGHT means empty.
-    const translateY = fillAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [TANK_HEIGHT, 0],
-    });
+    const animatedFillStyle = useAnimatedStyle(() => ({
+        width: interpolate(fillProgress.value, [0, 1], [0, BAR_WIDTH]),
+    }));
 
-    const isGoalMet = waterIntakeML >= GOAL_ML;
+    const percentage = Math.round(Math.min(100, (waterIntakeML / GOAL_ML) * 100));
 
     return (
-        <ScrollView
-            style={styles.container}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-        >
+        <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             <View style={styles.content}>
-                <View style={styles.header}>
-                    <Feather name="droplet" size={48} color={appTheme.colors.accent} />
-                    <Text style={styles.title}>Hydration Tracker</Text>
-                    <Text style={styles.subtitle}>
-                        {isGoalMet
-                            ? "Awesome! You've reached your daily goal! 🎉"
-                            : "Keep drinking! Your muscles need hydration."}
-                    </Text>
+
+                {/* Data Readout Headers */}
+                <View style={styles.dataHeader}>
+                    <Text style={styles.massiveDataText}>{percentage}<Text style={{ fontSize: 24, color: appTheme.colors.accentSecondary }}>%</Text></Text>
+                    <Text style={styles.subDataText}>SYS_HYDRATION_LEVEL</Text>
                 </View>
 
-                {/* Hydration Clock UI Prominent Hero */}
+                {/* Segmented LED Bar Visualizer */}
+                <View style={styles.trackerBarContainer}>
+                    <View style={[styles.barOutline, { width: BAR_WIDTH }]}>
+                        <Animated.View style={[styles.barFill, animatedFillStyle]} />
+                        {/* Cutouts to make it look "segmented" */}
+                        <View style={styles.segmentedOverlay}>
+                            {[...Array(9)].map((_, i) => (
+                                <View key={i} style={styles.segmentDivider} />
+                            ))}
+                        </View>
+                    </View>
+                    <View style={styles.trackerLabels}>
+                        <Text style={styles.trackerLabelText}>0_ML</Text>
+                        <Text style={[styles.trackerLabelText, { color: appTheme.colors.textPrimary }]}>{Math.max(0, waterIntakeML)}_ML</Text>
+                        <Text style={styles.trackerLabelText}>{GOAL_ML}_ML</Text>
+                    </View>
+                </View>
+
                 <HydrationClock logs={waterLogs} />
 
-                {/* Animated Tank UI - Compact Glassmorphic */}
-                <View style={[styles.tankContainer, { height: TANK_HEIGHT }]}>
-                    <Animated.View
-                        style={[
-                            styles.tankFill,
-                            {
-                                height: TANK_HEIGHT,
-                                transform: [{ translateY }],
-                            },
-                        ]}
-                    />
-                    <View style={styles.tankOverlay}>
-                        <Text style={styles.percentageText}>{percentage}%</Text>
-                        <Text style={styles.mlText}>{Math.max(0, waterIntakeML)} / {GOAL_ML} ML</Text>
-                    </View>
+                {/* Industrial Controls */}
+                <View style={styles.controlsCompact}>
+                    <TouchableOpacity
+                        style={styles.adjustBtnBase}
+                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); addWater(-250); }}
+                        activeOpacity={1}
+                    >
+                        <Text style={styles.btnText}>[-_250]</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.adjustBtnPrimary}
+                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); addWater(250); }}
+                        activeOpacity={1}
+                    >
+                        <Text style={styles.btnTextPrimary}>[+_250_ML]</Text>
+                    </TouchableOpacity>
                 </View>
 
-                <View style={styles.controls}>
-                    <Text style={styles.question}>Log your water intake</Text>
-
-                    <View style={styles.buttonRow}>
-                        <TouchableOpacity
-                            style={[styles.button, styles.noButton]}
-                            onPress={() => addWater(-250)}
-                            activeOpacity={0.7}
-                        >
-                            <Feather name="minus" size={24} color={appTheme.colors.textSecondary} />
-                        </TouchableOpacity>
-
-                        <View style={styles.logCenterDisplay}>
-                            <Feather name="droplet" size={20} color={appTheme.colors.accent} />
-                            <Text style={styles.logCenterText}>250 ML</Text>
-                        </View>
-
-                        <TouchableOpacity
-                            style={[styles.button, styles.yesButton]}
-                            onPress={() => addWater(250)}
-                            activeOpacity={0.7}
-                        >
-                            <Feather name="plus" size={24} color="#FFF" />
-                        </TouchableOpacity>
-                    </View>
-                </View>
             </View>
         </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: appTheme.colors.backgroundMain,
-    },
-    scrollContent: {
-        paddingBottom: 100,
-    },
-    content: {
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 32,
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: 40,
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: '900',
-        color: appTheme.colors.textPrimary,
-        marginTop: 16,
-        marginBottom: 8,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: appTheme.colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 24,
-    },
-    tankContainer: {
-        width: '100%',
-        maxWidth: 320,
-        backgroundColor: '#1E293B',
-        borderRadius: 24,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: '#334155',
-        marginBottom: 32,
-        position: 'relative',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 5,
-    },
-    tankFill: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: 'rgba(6, 182, 212, 0.2)', // Soft animated cyan wave
-        borderRadius: 24,
-    },
-    tankOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    percentageText: {
-        fontSize: 48,
-        fontWeight: '900',
-        color: appTheme.colors.accent,
-        letterSpacing: -1,
-    },
-    mlText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: appTheme.colors.textSecondary,
-        marginTop: 4,
-    },
-    controls: {
-        width: '100%',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-    },
-    question: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: appTheme.colors.textSecondary,
-        marginBottom: 16,
-        textTransform: 'uppercase',
-        letterSpacing: 1.5,
-    },
-    buttonRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 24,
-        width: '100%',
-        marginBottom: 24,
-    },
-    button: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    yesButton: {
-        backgroundColor: appTheme.colors.accent,
-        shadowColor: appTheme.colors.accent,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    noButton: {
-        backgroundColor: '#1E293B',
-        borderWidth: 1,
-        borderColor: '#334155',
-    },
-    logCenterDisplay: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 20,
-    },
-    logCenterText: {
-        color: appTheme.colors.textPrimary,
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginTop: 4,
-    },
-    clockContainer: {
-        width: '100%',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 40,
-    },
-    clockHeader: {
-        fontSize: 18,
-        fontWeight: '900',
-        color: appTheme.colors.textPrimary,
-        marginBottom: 24,
-    },
-    clockFace: {
-        width: 280,
-        height: 280,
-        borderRadius: 140,
-        backgroundColor: '#0F172A',
-        borderWidth: 4,
-        borderColor: '#1E293B',
-        position: 'relative',
-        shadowColor: appTheme.colors.accent,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.2,
-        shadowRadius: 24,
-        elevation: 10,
-    },
-    clockFilledDrop: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(6, 182, 212, 0.15)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(6, 182, 212, 0.4)',
-    },
-    handContainer: {
-        position: 'absolute',
-        width: 280,
-        height: 280,
-        top: -6,
-        left: -6,
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-    },
-    hourHand: {
-        width: 6,
-        height: 65,
-        backgroundColor: '#94A3B8',
-        borderRadius: 4,
-        marginTop: 75,
-    },
-    minuteHand: {
-        width: 4,
-        height: 90,
-        backgroundColor: '#E2E8F0',
-        borderRadius: 3,
-        marginTop: 50,
-    },
-    secondHand: {
-        width: 2,
-        height: 105,
-        backgroundColor: appTheme.colors.accent,
-        borderRadius: 2,
-        marginTop: 35,
-    },
-    centerDotOuter: {
-        position: 'absolute',
-        top: 126,
-        left: 126,
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        backgroundColor: '#1E293B',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-    centerDotInner: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: appTheme.colors.accent,
-    },
-    clockLegendsWrapper: {
-        width: '100%',
-        alignItems: 'center',
-        marginTop: 32,
-    },
-    clockLegendContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 12,
-    },
-    clockLegend: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: appTheme.colors.backgroundCard,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#1E293B',
-    },
-    clockLegendText: {
-        marginLeft: 8,
-        color: appTheme.colors.textSecondary,
-        fontSize: 12,
-        fontWeight: 'bold',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    colorLegendContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(15, 23, 42, 0.6)',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-    },
-    colorDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        marginRight: 6,
-    },
-    colorDotText: {
-        color: appTheme.colors.textSecondary,
-        fontSize: 12,
-        fontWeight: '600',
-    },
+    container: { flex: 1 },
+    scrollContent: { paddingBottom: 140, paddingTop: 10 },
+    content: { alignItems: 'center', paddingHorizontal: 24 },
+
+    dataHeader: { alignItems: 'center', marginBottom: 40 },
+    massiveDataText: { fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 80, color: appTheme.colors.textPrimary, letterSpacing: -4, lineHeight: 90 },
+    subDataText: { fontFamily: appTheme.typography.fontFamily.mono, fontSize: 12, color: appTheme.colors.textSecondary, letterSpacing: 2 },
+
+    trackerBarContainer: { width: '100%', alignItems: 'center', marginBottom: 40 },
+    barOutline: { height: 40, borderWidth: 1, borderColor: appTheme.colors.border, backgroundColor: appTheme.colors.blockFill, position: 'relative' },
+    barFill: { position: 'absolute', top: 0, bottom: 0, left: 0, backgroundColor: appTheme.colors.accent },
+    segmentedOverlay: { ...StyleSheet.absoluteFillObject, flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center' },
+    segmentDivider: { width: 4, height: '100%', backgroundColor: appTheme.colors.backgroundMain },
+    trackerLabels: { flexDirection: 'row', justifyContent: 'space-between', width: 280, marginTop: 8 },
+    trackerLabelText: { fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, color: appTheme.colors.textTertiary, letterSpacing: 1 },
+
+    clockContainer: { width: '100%', alignItems: 'center', marginBottom: 40 },
+    clockOuterRing: { width: 260, height: 260, borderWidth: 1, borderColor: appTheme.colors.border, justifyContent: 'center', alignItems: 'center', backgroundColor: appTheme.colors.blockFill },
+    clockFace: { width: 240, height: 240, backgroundColor: appTheme.colors.backgroundMain, borderWidth: 1, borderColor: appTheme.colors.border, position: 'relative', overflow: 'hidden' },
+    clockBlip: { position: 'absolute', width: 4, height: 12 },
+    crosshairVertical: { position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, backgroundColor: appTheme.colors.border, marginLeft: -0.5 },
+    crosshairHorizontal: { position: 'absolute', top: '50%', left: 0, right: 0, height: 1, backgroundColor: appTheme.colors.border, marginTop: -0.5 },
+    handContainer: { position: 'absolute', width: '100%', height: '100%', alignItems: 'center' },
+    hourHand: { width: 4, height: 50, backgroundColor: appTheme.colors.textSecondary, marginTop: 70 },
+    minuteHand: { width: 2, height: 80, backgroundColor: appTheme.colors.textPrimary, marginTop: 40 },
+    secondHand: { width: 1, height: 100, backgroundColor: appTheme.colors.accent, marginTop: 20 },
+    centerSquareOuter: { position: 'absolute', top: '50%', left: '50%', width: 16, height: 16, marginTop: -8, marginLeft: -8, borderWidth: 1, borderColor: appTheme.colors.border, backgroundColor: appTheme.colors.backgroundMain, justifyContent: 'center', alignItems: 'center' },
+    centerSquareInner: { width: 6, height: 6, backgroundColor: appTheme.colors.accent },
+    clockLegendsWrapper: { marginTop: 16 },
+    clockLegendContainer: { flexDirection: 'row', gap: 20 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    legendSquare: { width: 8, height: 8, borderWidth: 1, borderColor: appTheme.colors.border },
+    legendText: { fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, color: appTheme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 },
+
+    controlsCompact: { flexDirection: 'row', gap: 16, width: 280, justifyContent: 'center' },
+    adjustBtnBase: { flex: 1, height: 56, borderWidth: 1, borderColor: appTheme.colors.border, backgroundColor: appTheme.colors.blockFill, justifyContent: 'center', alignItems: 'center' },
+    btnText: { fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 14, color: appTheme.colors.textSecondary, letterSpacing: 1 },
+    adjustBtnPrimary: { flex: 2, height: 56, borderWidth: 1, borderColor: appTheme.colors.accent, backgroundColor: 'rgba(204, 255, 0, 0.1)', justifyContent: 'center', alignItems: 'center' },
+    btnTextPrimary: { fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 16, color: appTheme.colors.accent, letterSpacing: 1 },
 });
+

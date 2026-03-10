@@ -14,12 +14,12 @@ Notifications.setNotificationHandler({
 
 export async function requestPermissionsAndSchedule(force = false) {
     if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('catalyst_alerts_v2', {
-            name: 'Catalyst Alerts',
+        await Notifications.setNotificationChannelAsync('water_reminder_channel', {
+            name: 'Water Reminders',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#e63946',
-            sound: 'water_remainder',
+            lightColor: '#38bdf8',
+            sound: 'water_remainder.mp3', // Note: use the filename with extension if required for custom sounds
         });
     }
 
@@ -104,9 +104,9 @@ async function scheduleWorkoutNotifications() {
                 content: {
                     title: msg.wake.title,
                     body: msg.wake.body,
-                    sound: 'water_remainder',
+                    sound: 'water_remainder.mp3',
                     data: { url: 'catalyst://wake' },
-                    ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'catalyst_alerts_v2' }),
+                    ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'water_reminder_channel' }),
                 },
                 trigger: {
                     type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
@@ -123,9 +123,9 @@ async function scheduleWorkoutNotifications() {
                 content: {
                     title: msg.go.title,
                     body: msg.go.body,
-                    sound: 'water_remainder',
+                    sound: 'water_remainder.mp3',
                     data: { url: 'catalyst://go' },
-                    ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'catalyst_alerts_v2' }),
+                    ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'water_reminder_channel' }),
                 },
                 trigger: {
                     type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
@@ -165,9 +165,9 @@ export async function triggerWorkoutCompleteNotification() {
             content: {
                 title: msg.complete.title,
                 body: msg.complete.body,
-                sound: 'water_remainder',
+                sound: 'water_remainder.mp3',
                 data: { url: 'catalyst://complete' },
-                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'catalyst_alerts_v2' }),
+                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'water_reminder_channel' }),
             },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -176,7 +176,6 @@ export async function triggerWorkoutCompleteNotification() {
         });
     }
 }
-
 async function scheduleWaterReminders() {
     // We want daily reminders every hour from 8 to 22
     const waterHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
@@ -186,9 +185,9 @@ async function scheduleWaterReminders() {
             content: {
                 title: "Hydration Check 💧",
                 body: "Time to drink some water! Let's hit that 2.5L daily goal.",
-                sound: 'water_remainder',
+                sound: 'water_remainder.mp3',
                 data: { url: 'catalyst://water' }, // Deep link to the new water tab/screen
-                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'catalyst_alerts_v2' }),
+                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'water_reminder_channel' }),
             },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -199,3 +198,4 @@ async function scheduleWaterReminders() {
         });
     }
 }
+

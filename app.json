@@ -41,9 +41,9 @@
           "image": "./assets/images/legacy-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF",
+          "backgroundColor": "#000000",
           "dark": {
-            "backgroundColor": "#FFFFFF"
+            "backgroundColor": "#000000"
           }
         }
       ],
@@ -52,10 +52,11 @@
         {
           "icon": "./assets/images/adaptive-icon.png",
           "sounds": [
-            "./assets/notifications/water_remainder.mp3"
+            "./assets/notification/water_remainder.mp3"
           ]
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
