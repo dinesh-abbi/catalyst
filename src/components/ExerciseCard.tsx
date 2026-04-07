@@ -1,8 +1,9 @@
 import appTheme from '@/theme';
 import { Exercise } from '@/utils/getTodayWorkout';
 import { Check } from 'lucide-react-native';
+import { Feather } from '@expo/vector-icons';
 import React, { memo, useEffect } from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View, Linking } from 'react-native';
 import Animated, {
     interpolateColor,
     useAnimatedStyle,
@@ -76,6 +77,22 @@ export const ExerciseCard = memo(function ExerciseCard({
 
     const isCardio = !!exercise.isCardio;
     const inputSuffix = isCardio ? 'MIN' : 'KG';
+    const searchYouTube = () => Linking.openURL(`https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.name + ' exercise form')}`);
+    const searchGoogle = async () => {
+        const query = encodeURIComponent(exercise.name + ' exercise form');
+        const googleAppUrl = `google://search?q=${query}`;
+        const webUrl = `https://www.google.com/search?q=${query}`;
+        try {
+            const supported = await Linking.canOpenURL(googleAppUrl);
+            if (supported) {
+                await Linking.openURL(googleAppUrl);
+            } else {
+                await Linking.openURL(webUrl);
+            }
+        } catch (e) {
+            Linking.openURL(webUrl);
+        }
+    };
 
     return (
         <Animated.View
@@ -88,7 +105,7 @@ export const ExerciseCard = memo(function ExerciseCard({
                     >
                         {exercise.name}
                     </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
                         <View style={{ width: 8, height: 8, backgroundColor: appTheme.colors.accent, marginRight: 8 }} />
                         <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, textTransform: 'uppercase', letterSpacing: 2 }}>
                             {isCardio ? 'ENDURANCE_PROTO' : 'HYPERTROPHY_PROTO'}
@@ -96,17 +113,28 @@ export const ExerciseCard = memo(function ExerciseCard({
                     </View>
                 </View>
 
-                <TouchableOpacity
-                    onPress={onToggleComplete}
-                    style={{ height: 40, width: 40, alignItems: 'center', justifyContent: 'center' }}
-                    activeOpacity={1}
-                >
-                    <Animated.View style={[animatedCheckStyle, { width: 24, height: 24, borderWidth: 2, justifyContent: 'center', alignItems: 'center' }]}>
-                        {isCompleted && (
-                            <Check color="#000000" size={16} strokeWidth={4} />
-                        )}
-                    </Animated.View>
-                </TouchableOpacity>
+                <View style={{ alignItems: 'flex-end' }}>
+                    <TouchableOpacity
+                        onPress={onToggleComplete}
+                        style={{ height: 40, width: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}
+                        activeOpacity={1}
+                    >
+                        <Animated.View style={[animatedCheckStyle, { width: 24, height: 24, borderWidth: 2, justifyContent: 'center', alignItems: 'center' }]}>
+                            {isCompleted && (
+                                <Check color="#000000" size={16} strokeWidth={4} />
+                            )}
+                        </Animated.View>
+                    </TouchableOpacity>
+
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity onPress={searchYouTube} style={{ padding: 6, borderRadius: 6, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                            <Feather name="youtube" size={14} color="#ef4444" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={searchGoogle} style={{ padding: 6, borderRadius: 6, backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.2)' }}>
+                            <Feather name="search" size={14} color="#3b82f6" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: appTheme.colors.blockFill, borderWidth: 1, borderColor: appTheme.colors.blockBorder, padding: 16, marginBottom: exercise.notes ? 16 : 0 }}>

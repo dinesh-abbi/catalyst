@@ -52,11 +52,19 @@
         {
           "icon": "./assets/images/adaptive-icon.png",
           "sounds": [
-            "./assets/notification/water_remainder.mp3"
+            "./assets/notification/appsound.wav"
           ]
         }
       ],
-      "expo-font"
+      [
+        "expo-font"
+      ],
+      [
+        "@react-native-firebase/app",
+        {
+          "googleServicesFile": "./android/app/google-services.json"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -3,7 +3,7 @@ import appTheme from '@/theme';
 import { Exercise, workoutData, WorkoutDayRaw } from '@/utils/getTodayWorkout';
 import { Feather } from '@expo/vector-icons';
 import React, { memo, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, ScrollView, Text, TouchableOpacity, View, Linking } from 'react-native';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,37 +11,49 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 
 const ReadOnlyExerciseCard = memo(({ exercise }: { exercise: Exercise }) => {
     const isCardio = !!exercise.isCardio;
+    const searchYouTube = () => Linking.openURL(`https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.name + ' exercise form')}`);
+    const searchGoogle = () => Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(exercise.name + ' exercise form')}`);
+
     return (
         <View style={{ backgroundColor: appTheme.colors.backgroundCard, borderColor: 'rgba(51, 65, 85, 0.4)', borderWidth: 1 }} className="rounded-[24px] p-6 mb-4">
             <View className="flex-row items-center mb-4">
                 <View style={{ width: 4, height: 16, backgroundColor: appTheme.colors.accent, borderRadius: 2, marginRight: 10 }} />
-                <Text style={{ color: appTheme.colors.textPrimary }} className="text-lg font-black tracking-tight flex-1">{exercise.name}</Text>
+                <Text style={{ color: appTheme.colors.textPrimary, ...(appTheme.typography.h3 as any) }} className="flex-1 tracking-wider uppercase">{exercise.name}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity onPress={searchYouTube} style={{ padding: 8, borderRadius: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                        <Feather name="youtube" size={16} color="#ef4444" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={searchGoogle} style={{ padding: 8, borderRadius: 8, backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.2)' }}>
+                        <Feather name="search" size={16} color="#3b82f6" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <View className="flex-row items-center justify-between bg-[#0b0f19] rounded-[18px] p-4 mb-4 border border-slate-800/30">
                 <View className="flex-row items-center flex-1">
                     <View className="mr-8">
-                        <Text style={{ color: appTheme.colors.textTertiary }} className="text-[10px] font-black tracking-widest uppercase mb-1">{isCardio ? 'TYPE' : 'SETS'}</Text>
-                        <Text style={{ color: appTheme.colors.textPrimary }} className="font-black text-lg">{isCardio ? exercise.tempo : exercise.sets}</Text>
+                        <Text style={{ color: appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-[10px] tracking-widest uppercase mb-1">{isCardio ? 'TYPE' : 'SETS'}</Text>
+                        <Text style={{ color: appTheme.colors.textPrimary, fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-lg">{isCardio ? exercise.tempo : exercise.sets}</Text>
                     </View>
                     <View>
-                        <Text style={{ color: appTheme.colors.textTertiary }} className="text-[10px] font-black tracking-widest uppercase mb-1">{isCardio ? 'SETS' : 'REPS'}</Text>
-                        <Text style={{ color: appTheme.colors.textPrimary }} className="font-black text-lg">{isCardio ? exercise.sets : exercise.reps}</Text>
+                        <Text style={{ color: appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-[10px] tracking-widest uppercase mb-1">{isCardio ? 'SETS' : 'REPS'}</Text>
+                        <Text style={{ color: appTheme.colors.textPrimary, fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-lg">{isCardio ? exercise.sets : exercise.reps}</Text>
                     </View>
                 </View>
 
                 <View style={{ backgroundColor: '#161e2e', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 }}>
-                    <Text style={{ color: appTheme.colors.accent }} className="text-[10px] font-bold uppercase tracking-widest">{isCardio ? 'CARDIO' : 'STRENGTH'}</Text>
+                    <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-[10px] uppercase tracking-widest">{isCardio ? 'CARDIO' : 'STRENGTH'}</Text>
                 </View>
             </View>
 
             {exercise.notes && (
                 <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', borderRadius: 12, padding: 12, borderLeftWidth: 3, borderLeftColor: appTheme.colors.accent }}>
-                    <Text style={{ color: appTheme.colors.textSecondary }} className="text-xs italic leading-snug">
+                    <Text style={{ color: appTheme.colors.textSecondary, fontFamily: appTheme.typography.fontFamily.mono }} className="text-xs italic leading-snug">
                         {exercise.notes}
                     </Text>
                 </View>
             )}
+
         </View>
     );
 });
@@ -73,9 +85,9 @@ export default function WeeklyOverviewScreen() {
                     <View className="flex-1">
                         <View className="flex-row items-center mb-1">
                             <View style={{ width: 12, height: 2, backgroundColor: appTheme.colors.accent, marginRight: 8 }} />
-                            <Text style={{ color: appTheme.colors.accent }} className="text-[10px] font-black tracking-[3px] uppercase">Training Split</Text>
+                            <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-[10px] tracking-[3px] uppercase">Training Split</Text>
                         </View>
-                        <Text style={{ color: appTheme.colors.textPrimary }} className="text-4xl font-black tracking-tighter">
+                        <Text style={{ color: appTheme.colors.textPrimary, ...(appTheme.typography.h1 as any) }} className="text-4xl tracking-tighter uppercase">
                             WEEKLY
                         </Text>
                     </View>
@@ -87,7 +99,7 @@ export default function WeeklyOverviewScreen() {
                             className="px-4 py-2 rounded-xl flex-row items-center"
                         >
                             <Feather name="refresh-ccw" size={12} color={appTheme.colors.accent} />
-                            <Text style={{ color: appTheme.colors.accent }} className="text-[10px] font-black ml-2 uppercase tracking-widest">
+                            <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-[10px] ml-2 uppercase tracking-widest">
                                 RESET
                             </Text>
                         </TouchableOpacity>
@@ -112,20 +124,20 @@ export default function WeeklyOverviewScreen() {
                                     }}
                                 >
                                     <View className="flex-row items-center justify-between mb-2">
-                                        <Text style={{ color: isToday ? appTheme.colors.accent : appTheme.colors.textTertiary }} className="font-black tracking-[2px] uppercase text-[10px]">
+                                        <Text style={{ color: isToday ? appTheme.colors.accent : appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.monoBold }} className="tracking-[2px] uppercase text-[10px]">
                                             {day.physicalDayName} {isToday && '• TODAY'}
                                         </Text>
-                                        <Text style={{ color: isToday ? appTheme.colors.accent : 'rgba(148, 163, 184, 0.3)' }} className="font-black text-xs uppercase tracking-widest">
+                                        <Text style={{ color: isToday ? appTheme.colors.accent : 'rgba(148, 163, 184, 0.3)', fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-xs uppercase tracking-widest">
                                             DAY {day.dayNumber}
                                         </Text>
                                     </View>
-                                    <Text style={{ color: isToday ? appTheme.colors.textPrimary : 'rgba(248, 250, 252, 0.8)' }} className="text-2xl font-black tracking-tight">
+                                    <Text style={{ color: isToday ? appTheme.colors.textPrimary : 'rgba(248, 250, 252, 0.8)', fontFamily: appTheme.typography.fontFamily.heading }} className="text-2xl tracking-tight uppercase">
                                         {day.focus}
                                     </Text>
 
                                     {day.isRecovery && (
                                         <View style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginTop: 12 }}>
-                                            <Text style={{ color: appTheme.colors.accentSecondary }} className="text-[10px] font-black uppercase tracking-widest">
+                                            <Text style={{ color: appTheme.colors.accentSecondary, fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-[10px] uppercase tracking-widest">
                                                 RECOVERY DAY
                                             </Text>
                                         </View>
@@ -149,9 +161,9 @@ export default function WeeklyOverviewScreen() {
                             <View className="flex-1 pr-4">
                                 <View className="flex-row items-center mb-1">
                                     <View style={{ width: 8, height: 2, backgroundColor: appTheme.colors.accent, marginRight: 6 }} />
-                                    <Text style={{ color: appTheme.colors.accent }} className="text-[10px] font-black tracking-widest uppercase">{selectedDay?.assignedDay}</Text>
+                                    <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-[10px] tracking-widest uppercase">{selectedDay?.assignedDay}</Text>
                                 </View>
-                                <Text style={{ color: appTheme.colors.textPrimary }} className="text-4xl font-black tracking-tighter">{selectedDay?.focus}</Text>
+                                <Text style={{ color: appTheme.colors.textPrimary, ...(appTheme.typography.h1 as any) }} className="text-4xl tracking-tighter uppercase">{selectedDay?.focus}</Text>
                             </View>
                             <TouchableOpacity
                                 onPress={() => setSelectedDay(null)}
@@ -196,7 +208,7 @@ export default function WeeklyOverviewScreen() {
                                 ) : (
                                     <>
                                         <Feather name="zap" size={16} color="#fff" style={{ marginRight: 10 }} />
-                                        <Text className="text-white font-black uppercase tracking-widest text-xs">
+                                        <Text style={{ fontFamily: appTheme.typography.fontFamily.monoBold }} className="text-white uppercase tracking-widest text-xs">
                                             ACTIVATE THIS WORKOUT
                                         </Text>
                                     </>

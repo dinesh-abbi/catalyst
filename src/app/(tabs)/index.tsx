@@ -4,11 +4,13 @@ import { TempoReminder } from '@/components/TempoReminder';
 import { WaterTracker } from '@/components/WaterTracker';
 import { useWorkoutStore } from '@/store/useWorkoutStore';
 import appTheme from '@/theme';
-import { getTodayWorkout } from '@/utils/getTodayWorkout';
+import { fetchExercises, logCompletedWorkout } from '@/utils/WorkoutService';
+import { useAlertStore } from '@/store/useAlertStore';
+import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
     FadeInDown,
     useAnimatedStyle,
@@ -80,11 +82,16 @@ export default function HomeScreen() {
         setWeight,
         setDismissTempoReminder,
         checkAndResetAtMidnight,
-        scheduleOffset
+        scheduleOffset,
+        resetDailyChecklist
     } = useWorkoutStore();
+    const { showAlert } = useAlertStore();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams<{ tab?: string }>();
     const [activeTab, setActiveTab] = useState<'exercises' | 'water'>('exercises');
+    const [fetchedDays, setFetchedDays] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const currentPhysicalDay = useMemo(() => {
         const jsDay = new Date().getDay();
@@ -115,7 +122,86 @@ export default function HomeScreen() {
         return () => subscription.remove();
     }, [checkAndResetAtMidnight, effectiveToday]);
 
-    const todayWorkout = useMemo(() => getTodayWorkout(effectiveToday), [effectiveToday]);
+    const loadData = async (refreshing = false) => {
+        if (refreshing) setIsRefreshing(true);
+        else setIsLoading(true);
+
+        try {
+            const data = await fetchExercises();
+            setFetchedDays(data);
+        } catch (error) {
+            console.error("Error loading exercises:", error);
+        } finally {
+            setIsLoading(false);
+            setIsRefreshing(false);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const onRefresh = useCallback(() => {
+        loadData(true);
+    }, []);
+
+    const handleFinishWorkout = async () => {
+        const completedIds = Object.keys(completedExercises).filter(id => completedExercises[id]);
+        
+        if (completedIds.length === 0) {
+            showAlert('EMPTY_WORKOUT', "You haven't completed any exercises yet.", 'INFO');
+            return;
+        }
+
+        // We use system Alert for confirmation since it's a native OS pattern for safety, 
+        // but for results/errors we use our ThemedAlert.
+        Alert.alert(
+            "Finish Workout",
+            "Are you sure you want to save this session?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Save",
+                    onPress: async () => {
+                        const workoutData = {
+                            title: todayWorkout.title,
+                            dayNumber: todayWorkout.dayNumber,
+                            exercises: todayWorkout.exercises.map((ex: any) => ({
+                                id: ex.id,
+                                name: ex.name,
+                                isCompleted: !!completedExercises[ex.id],
+                                weight: loggedWeights[ex.id] || 0
+                            }))
+                        };
+
+                        const success = await logCompletedWorkout(workoutData);
+                        if (success) {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            resetDailyChecklist();
+                            showAlert('SUCCESS', "Workout logged to neural backup.", 'SUCCESS');
+                        } else {
+                            showAlert('ERROR', "Failed to synchronize workout data.", 'ERROR');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const todayWorkout = useMemo(() => {
+        if (fetchedDays.length === 0) {
+            return { title: 'Loading...', exercises: [], dayNumber: 0 };
+        }
+        const workoutForDay = fetchedDays.find(d => d.dayNumber === effectiveToday);
+        if (!workoutForDay) {
+            return { title: 'Rest Day', exercises: [], dayNumber: effectiveToday };
+        }
+        return {
+            title: workoutForDay.focus,
+            exercises: workoutForDay.exercises || [],
+            dayNumber: workoutForDay.dayNumber
+        };
+    }, [effectiveToday, fetchedDays]);
 
     const formattedDate = useMemo(() => new Intl.DateTimeFormat('en-US', {
         weekday: 'long',
@@ -231,15 +317,47 @@ export default function HomeScreen() {
 
                         <GymPrompt />
 
-                        <FlatList
-                            data={todayWorkout.exercises}
-                            keyExtractor={(item) => item.id}
-                            showsVerticalScrollIndicator={false}
-                            contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
-                            ListEmptyComponent={renderEmptyComponent}
-                            renderItem={renderExercise}
-                            removeClippedSubviews={false} // Important for layout animations
-                        />
+                        {isLoading ? (
+                            <View className="flex-1 items-center justify-center">
+                                <ActivityIndicator size="large" color={appTheme.colors.accent} />
+                                <Text style={{ color: appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.mono, fontSize: 10, marginTop: 16, letterSpacing: 2 }}>[ SYNCING_DATA ]</Text>
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={todayWorkout.exercises}
+                                keyExtractor={(item) => item.id}
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+                                ListEmptyComponent={renderEmptyComponent}
+                                renderItem={renderExercise}
+                                removeClippedSubviews={false} // Important for layout animations
+                                refreshControl={
+                                    <RefreshControl
+                                        refreshing={isRefreshing}
+                                        onRefresh={onRefresh}
+                                        tintColor={appTheme.colors.accent}
+                                        colors={[appTheme.colors.accent]}
+                                    />
+                                }
+                                ListFooterComponent={
+                                    todayWorkout.exercises.length > 0 ? (
+                                        <TouchableOpacity
+                                            onPress={handleFinishWorkout}
+                                            style={{
+                                                marginTop: 20,
+                                                backgroundColor: appTheme.colors.accent,
+                                                paddingVertical: 18,
+                                                alignItems: 'center',
+                                                borderWidth: 1,
+                                                borderColor: 'rgba(255,255,255,0.2)'
+                                            }}
+                                        >
+                                            <Text style={{ color: '#000', fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 14, letterSpacing: 2 }}>FINISH WORKOUT</Text>
+                                        </TouchableOpacity>
+                                    ) : null
+                                }
+                            />
+                        )}
                     </View>
 
                     {/* Water Tracker View */}

@@ -39,7 +39,9 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
                 {state.routes.map((route, index) => {
                     const { options } = descriptors[route.key];
                     const isFocused = state.index === index;
-                    const label = route.name === 'index' ? '[ TODAY ]' : '[ WEEKLY ]';
+                    const label = 
+                        route.name === 'index' ? '[ TODAY ]' : 
+                        route.name === 'weekly' ? '[ WEEKLY ]' : '[ PROFILE ]';
 
                     const onPress = () => {
                         const event = navigation.emit({

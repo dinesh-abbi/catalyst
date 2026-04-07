@@ -3,23 +3,43 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 // Set how notifications should behave when the app is running in the foreground
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
-    }),
-});
+try {
+    Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+            shouldShowBanner: true,
+            shouldShowList: true,
+        }),
+    });
+} catch (e) {
+    // Muted: setNotificationHandler fallback
+}
+
+// Channel ID — bump the version suffix if you ever need to change channel settings (sound, vibration, etc.)
+// Android caches channels permanently, so the ONLY way to apply new settings is a fresh channel ID.
+const CHANNEL_ID = 'catalyst_alerts_v6';
 
 export async function requestPermissionsAndSchedule(force = false) {
     if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('water_reminder_channel', {
-            name: 'Water Reminders',
+        // Delete any old cached channels so Android doesn't ignore our new sound setting
+        try {
+            await Notifications.deleteNotificationChannelAsync('water_reminder_channel');
+            await Notifications.deleteNotificationChannelAsync('catalyst_alerts_v2');
+            await Notifications.deleteNotificationChannelAsync('catalyst_alerts_v3');
+            await Notifications.deleteNotificationChannelAsync('catalyst_alerts_v4');
+        } catch (_) { /* channels may not exist, that's fine */ }
+
+        await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+            name: 'Catalyst Alerts',
             importance: Notifications.AndroidImportance.MAX,
             vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#38bdf8',
-            sound: 'water_remainder.mp3', // Note: use the filename with extension if required for custom sounds
+            lightColor: '#CCFF00',
+            sound: 'appsound.wav', // App brand sound — res/raw/appsound.wav
+            audioAttributes: {
+                usage: 5,       // NOTIFICATION (expo enum)
+                contentType: 4, // SONIFICATION (expo enum)
+            },
         });
     }
 
@@ -33,8 +53,8 @@ export async function requestPermissionsAndSchedule(force = false) {
             const { status: existingStatus } = await Notifications.getPermissionsAsync();
             finalStatus = existingStatus;
         } catch (innerError) {
-            console.warn('[notifications.ts] getPermissionsAsync failed. Bypassing safely.', innerError);
-            return; // Exit safely for Expo Go
+            // Muted: getPermissionsAsync fallback
+            return;
         }
 
         if (finalStatus !== 'granted') {
@@ -47,10 +67,8 @@ export async function requestPermissionsAndSchedule(force = false) {
             return;
         }
     } catch (e) {
-        // Expo Go sometimes throws an error here on SDK 53 due to lacking remote push support.
-        // We catch it so the app doesn't crash, since we are only doing LOCAL scheduling.
-        console.warn('Unhandled notification permission error bypassed.', e);
-        return; // Don't crash but don't attempt to schedule
+        // Muted: Permission error fallback (Expected in some Expo Go scenarios)
+        return;
     }
 
     // Check if we already have notifications scheduled before fiercely cancelling and rebuilding them
@@ -77,11 +95,8 @@ async function scheduleWorkoutNotifications() {
     const activeDays = [2, 3, 4, 5, 6, 7]; // Monday to Saturday
 
     // Attempt to get the schedule offset from the store if possible, otherwise default to 0
-    // We do this to avoid circular dependencies in some contexts, but ideally we'd pass it in.
-    // For background scheduling, we needs the most recent offset.
     let scheduleOffset = 0;
     try {
-        // We import it dynamically to avoid top-level circular dependency issues
         const { useWorkoutStore } = require('@/store/useWorkoutStore');
         scheduleOffset = useWorkoutStore.getState().scheduleOffset;
     } catch (e) {
@@ -104,9 +119,9 @@ async function scheduleWorkoutNotifications() {
                 content: {
                     title: msg.wake.title,
                     body: msg.wake.body,
-                    sound: 'water_remainder.mp3',
+                    sound: 'appsound.wav',
                     data: { url: 'catalyst://wake' },
-                    ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'water_reminder_channel' }),
+                    ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: CHANNEL_ID }),
                 },
                 trigger: {
                     type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
@@ -123,9 +138,9 @@ async function scheduleWorkoutNotifications() {
                 content: {
                     title: msg.go.title,
                     body: msg.go.body,
-                    sound: 'water_remainder.mp3',
+                    sound: 'appsound.wav',
                     data: { url: 'catalyst://go' },
-                    ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'water_reminder_channel' }),
+                    ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: CHANNEL_ID }),
                 },
                 trigger: {
                     type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
@@ -165,9 +180,9 @@ export async function triggerWorkoutCompleteNotification() {
             content: {
                 title: msg.complete.title,
                 body: msg.complete.body,
-                sound: 'water_remainder.mp3',
+                sound: 'appsound.wav',
                 data: { url: 'catalyst://complete' },
-                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'water_reminder_channel' }),
+                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: CHANNEL_ID }),
             },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -185,9 +200,9 @@ async function scheduleWaterReminders() {
             content: {
                 title: "Hydration Check 💧",
                 body: "Time to drink some water! Let's hit that 2.5L daily goal.",
-                sound: 'water_remainder.mp3',
+                sound: 'appsound.wav',
                 data: { url: 'catalyst://water' }, // Deep link to the new water tab/screen
-                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: 'water_reminder_channel' }),
+                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: CHANNEL_ID }),
             },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.DAILY,

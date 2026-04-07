@@ -46,6 +46,22 @@ export const useWorkoutStore = create<WorkoutState>()(
                         ...state.completedExercises,
                         [id]: isCompletedNow,
                     };
+
+                    // Conditionally fire notification if this was the last exercise checked for today
+                    if (isCompletedNow) {
+                        try {
+                            const { getTodayWorkout } = require('@/utils/getTodayWorkout');
+                            const todayWorkout = getTodayWorkout();
+                            const allDone = todayWorkout.exercises.every((ex: { id: string }) => nextCompleted[ex.id]);
+                            if (allDone) {
+                                const { triggerWorkoutCompleteNotification } = require('@/utils/notifications');
+                                triggerWorkoutCompleteNotification();
+                            }
+                        } catch (e) {
+                            console.warn('[store] Notification trigger failed:', e);
+                        }
+                    }
+
                     return { completedExercises: nextCompleted };
                 }),
 
@@ -68,6 +84,13 @@ export const useWorkoutStore = create<WorkoutState>()(
 
             setScheduleOffset: (offset: number) => {
                 set({ scheduleOffset: offset });
+                // Re-schedule alarms to match the new workout day layout
+                try {
+                    const { requestPermissionsAndSchedule } = require('@/utils/notifications');
+                    requestPermissionsAndSchedule(true);
+                } catch (e) {
+                    console.warn('[store] Notification reschedule failed:', e);
+                }
             },
 
             setGymMorningPromptStatus: (status) => set({ gymMorningPromptStatus: status }),
@@ -76,6 +99,7 @@ export const useWorkoutStore = create<WorkoutState>()(
             resetDailyChecklist: () =>
                 set({
                     completedExercises: {},
+                    loggedWeights: {},
                     waterIntakeML: 0,
                     waterLogs: [],
                     lastActiveDate: new Date().toDateString(),
