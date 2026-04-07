@@ -30,7 +30,9 @@ export const ExerciseCard = memo(function ExerciseCard({
     onUpdateWeight,
     index,
 }: ExerciseCardProps) {
+    const [localWeight, setLocalWeight] = React.useState(loggedWeight ? loggedWeight.toString() : '');
     const scale = useSharedValue(1);
+
     const checkedProgress = useSharedValue(isCompleted ? 1 : 0);
 
     useEffect(() => {
@@ -45,6 +47,15 @@ export const ExerciseCard = memo(function ExerciseCard({
             checkedProgress.value = withTiming(0, { duration: 400 });
         }
     }, [isCompleted]);
+
+    useEffect(() => {
+        const parsedLocal = parseFloat(localWeight) || 0;
+        const currentProp = loggedWeight || 0;
+        if (parsedLocal !== currentProp) {
+            setLocalWeight(loggedWeight ? loggedWeight.toString() : '');
+        }
+    }, [loggedWeight]);
+
 
     const animatedCheckStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
@@ -160,15 +171,24 @@ export const ExerciseCard = memo(function ExerciseCard({
                 <View style={{ backgroundColor: appTheme.colors.backgroundMain, borderWidth: 1, borderColor: appTheme.colors.border, width: 100, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}>
                     <TextInput
                         style={{ color: isCompleted ? appTheme.colors.textTertiary : appTheme.colors.accent, flex: 1, textAlign: 'right', fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 18, padding: 0 }}
-                        keyboardType="numeric"
+                        keyboardType="decimal-pad"
                         placeholder="--"
                         placeholderTextColor={appTheme.colors.textTertiary}
-                        value={loggedWeight ? loggedWeight.toString() : ''}
+                        value={localWeight}
                         onChangeText={(val) => {
-                            const num = parseFloat(val);
-                            onUpdateWeight(!isNaN(num) ? num : 0);
+                            setLocalWeight(val);
+                            // Replace comma with dot for parsing (handles international keyboards)
+                            const normalized = val.replace(',', '.');
+                            const num = parseFloat(normalized);
+                            if (!isNaN(num)) {
+                                onUpdateWeight(num);
+                            } else if (val === '' || val === '.' || val === ',') {
+                                onUpdateWeight(0);
+                            }
                         }}
+
                     />
+
                     <Text style={{ color: appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, marginLeft: 6, marginTop: 4 }}>
                         {inputSuffix}
                     </Text>

@@ -22,7 +22,12 @@ export default function ProfileScreen() {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [weightStr, setWeightStr] = useState('');
+    const [heightStr, setHeightStr] = useState('');
+    const [ageStr, setAgeStr] = useState('');
+    const [targetWeightStr, setTargetWeightStr] = useState('');
     const { showAlert } = useAlertStore();
+
 
     useEffect(() => {
         loadProfile();
@@ -31,33 +36,48 @@ export default function ProfileScreen() {
     const loadProfile = async () => {
         setLoading(true);
         const data = await UserService.getProfile();
-        setProfile(data);
+        if (data) {
+            setProfile(data);
+            setWeightStr(data.weight?.toString() || '');
+            setHeightStr(data.height?.toString() || '');
+            setAgeStr(data.age?.toString() || '');
+            setTargetWeightStr(data.targetWeight?.toString() || '');
+        }
         setLoading(false);
     };
+
 
     const handleSave = async () => {
         if (!profile) return;
         setSaving(true);
-        const success = await UserService.updateProfile(profile);
+        
+        const updatedProfile = {
+            ...profile,
+            weight: parseFloat(weightStr.replace(',', '.')) || 0,
+            height: parseFloat(heightStr.replace(',', '.')) || 0,
+            age: parseInt(ageStr) || 0,
+            targetWeight: parseFloat(targetWeightStr.replace(',', '.')) || 0,
+        };
+
+
+        const success = await UserService.updateProfile(updatedProfile);
         setSaving(false);
         
         if (success) {
+            setProfile(updatedProfile);
             showAlert('SUCCESS', 'Profile updated systems synchronized.', 'SUCCESS');
         } else {
             showAlert('ERROR', 'Failed to synchronize profile data.', 'ERROR');
         }
     };
 
+
     const handleLogout = async () => {
         const { error } = await AuthService.logout();
         if (error) showAlert('ERROR', error, 'ERROR');
     };
 
-    const updateField = (field: keyof UserProfile, value: string) => {
-        if (!profile) return;
-        const numValue = parseFloat(value) || 0;
-        setProfile({ ...profile, [field]: numValue });
-    };
+
 
     if (loading) {
         return (
@@ -91,9 +111,9 @@ export default function ProfileScreen() {
                                 <Text style={styles.statLabel}>WEIGHT (KG)</Text>
                                 <TextInput 
                                     style={styles.statInput}
-                                    keyboardType="numeric"
-                                    value={profile?.weight?.toString() || ''}
-                                    onChangeText={(v) => updateField('weight', v)}
+                                    keyboardType="decimal-pad"
+                                    value={weightStr}
+                                    onChangeText={setWeightStr}
                                     placeholder="00.0"
                                     placeholderTextColor={appTheme.colors.textTertiary}
                                 />
@@ -102,9 +122,9 @@ export default function ProfileScreen() {
                                 <Text style={styles.statLabel}>HEIGHT (CM)</Text>
                                 <TextInput 
                                     style={styles.statInput}
-                                    keyboardType="numeric"
-                                    value={profile?.height?.toString() || ''}
-                                    onChangeText={(v) => updateField('height', v)}
+                                    keyboardType="decimal-pad"
+                                    value={heightStr}
+                                    onChangeText={setHeightStr}
                                     placeholder="000"
                                     placeholderTextColor={appTheme.colors.textTertiary}
                                 />
@@ -115,9 +135,9 @@ export default function ProfileScreen() {
                             <Text style={styles.statLabel}>AGE</Text>
                             <TextInput 
                                 style={styles.statInput}
-                                keyboardType="numeric"
-                                value={profile?.age?.toString() || ''}
-                                onChangeText={(v) => updateField('age', v)}
+                                keyboardType="number-pad"
+                                value={ageStr}
+                                onChangeText={setAgeStr}
                                 placeholder="00"
                                 placeholderTextColor={appTheme.colors.textTertiary}
                             />
@@ -131,14 +151,15 @@ export default function ProfileScreen() {
                             <Text style={styles.statLabel}>TARGET_WEIGHT (KG)</Text>
                             <TextInput 
                                 style={styles.statInput}
-                                keyboardType="numeric"
-                                value={profile?.targetWeight?.toString() || ''}
-                                onChangeText={(v) => updateField('targetWeight', v)}
+                                keyboardType="decimal-pad"
+                                value={targetWeightStr}
+                                onChangeText={setTargetWeightStr}
                                 placeholder="00.0"
                                 placeholderTextColor={appTheme.colors.textTertiary}
                             />
                         </View>
                     </Animated.View>
+
 
                     {/* Actions */}
                     <View style={styles.actions}>
