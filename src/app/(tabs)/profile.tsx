@@ -1,4 +1,5 @@
 import appTheme from '@/theme';
+import { useDietStore } from '@/store/useDietStore';
 import { AuthService } from '@/utils/AuthService';
 import { UserProfile, UserService } from '@/utils/UserService';
 import { useAlertStore } from '@/store/useAlertStore';
@@ -27,6 +28,7 @@ export default function ProfileScreen() {
     const [ageStr, setAgeStr] = useState('');
     const [targetWeightStr, setTargetWeightStr] = useState('');
     const { showAlert } = useAlertStore();
+    const { getMonthlyTotal } = useDietStore();
 
 
     useEffect(() => {
@@ -157,6 +159,23 @@ export default function ProfileScreen() {
                                 placeholder="00.0"
                                 placeholderTextColor={appTheme.colors.textTertiary}
                             />
+                        </View>
+                    </Animated.View>
+
+                    {/* Fuel Expenses Section */}
+                    <Animated.View entering={FadeInDown.delay(300).duration(600)} style={styles.section}>
+                        <Text style={styles.sectionLabel}>// FINANCIAL_SYNC</Text>
+                        <View style={[styles.statBoxFull, { borderColor: appTheme.colors.accent, backgroundColor: 'rgba(204, 255, 0, 0.05)' }]}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <View>
+                                    <Text style={styles.statLabel}>MONTHLY_FUEL_EXPENSE</Text>
+                                    <Text style={[styles.statInput, { color: appTheme.colors.accent }]}>₹{getMonthlyTotal()}</Text>
+                                </View>
+                                <Feather name="trending-up" size={24} color={appTheme.colors.accent} />
+                            </View>
+                            <Text style={{ color: appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.mono, fontSize: 10, marginTop: 12, letterSpacing: 1 }}>
+                                [ SYSTEM NOTE: GROCERY COSTS LOGGED FROM SHOPPING LIST ]
+                            </Text>
                         </View>
                     </Animated.View>
 

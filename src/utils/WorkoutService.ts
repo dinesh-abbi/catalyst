@@ -56,8 +56,13 @@ export const logCompletedWorkout = async (workoutData: any) => {
         const user = auth.currentUser;
         if (!user) throw new Error("No authenticated user found");
 
+        // Filter out undefined fields to avoid Firestore error
+        const cleanData = Object.fromEntries(
+            Object.entries(workoutData).filter(([_, v]) => v !== undefined)
+        );
+
         const docRef = await addDoc(collection(db, 'workout_logs'), {
-            ...workoutData,
+            ...cleanData,
             userId: user.uid,
             completedAt: serverTimestamp(),
         });

@@ -41,7 +41,8 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
                     const isFocused = state.index === index;
                     const label = 
                         route.name === 'index' ? '[ TODAY ]' : 
-                        route.name === 'weekly' ? '[ WEEKLY ]' : '[ PROFILE ]';
+                        route.name === 'weekly' ? '[ WEEKLY ]' : 
+                        route.name === 'nutrition' ? '[ FUEL ]' : '[ PROFILE ]';
 
                     const onPress = () => {
                         const event = navigation.emit({

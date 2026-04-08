@@ -88,6 +88,57 @@ export async function requestPermissionsAndSchedule(force = false) {
 
     // Schedule daily water reminders
     await scheduleWaterReminders();
+
+    // Schedule daily meal reminders
+    await scheduleMealReminders();
+
+    // Schedule daily grocery reminders
+    await scheduleGroceryReminders();
+}
+
+async function scheduleMealReminders() {
+    const mealTimes = [
+        { name: 'Breakfast', hour: 8, minute: 30 },
+        { name: 'Lunch', hour: 13, minute: 30 },
+        { name: 'Snack', hour: 17, minute: 30 },
+        { name: 'Dinner', hour: 20, minute: 30 },
+    ];
+
+    for (const meal of mealTimes) {
+        await Notifications.scheduleNotificationAsync({
+            content: {
+                title: `${meal.name} Time! 🍽️`,
+                body: `Check your meal plan for today's ${meal.name.toLowerCase()}.`,
+                sound: 'appsound.wav',
+                data: { url: 'catalyst://nutrition' },
+                ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: CHANNEL_ID }),
+            },
+            trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DAILY,
+                hour: meal.hour,
+                minute: meal.minute,
+                repeats: true
+            } as Notifications.DailyTriggerInput,
+        });
+    }
+}
+
+async function scheduleGroceryReminders() {
+    await Notifications.scheduleNotificationAsync({
+        content: {
+            title: "Shopping Checklist 🛒",
+            body: "Check your grocery list! It's updated for today's requirements.",
+            sound: 'appsound.wav',
+            data: { url: 'catalyst://nutrition?tab=shopping' },
+            ...(Platform.OS === 'android' && { icon: 'notification_icon', channelId: CHANNEL_ID }),
+        },
+        trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour: 7,
+            minute: 30,
+            repeats: true
+        } as Notifications.DailyTriggerInput,
+    });
 }
 
 async function scheduleWorkoutNotifications() {

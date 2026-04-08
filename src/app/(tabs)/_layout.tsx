@@ -31,6 +31,13 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
+                name="nutrition"
+                options={{
+                    title: 'Fuel',
+                    tabBarIcon: ({ color }) => <Feather name="pie-chart" color={color} size={22} />,
+                }}
+            />
+            <Tabs.Screen
                 name="profile"
                 options={{
                     title: 'Profile',

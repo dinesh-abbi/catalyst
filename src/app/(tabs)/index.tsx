@@ -93,10 +93,23 @@ export default function HomeScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
+    const [todayDate, setTodayDate] = useState(new Date());
+
+    useEffect(() => {
+        const fetchInterval = setInterval(() => {
+            const now = new Date();
+            if (now.getDate() !== todayDate.getDate()) {
+                setTodayDate(now);
+                checkAndResetAtMidnight();
+            }
+        }, 60000); // Check every minute
+        return () => clearInterval(fetchInterval);
+    }, [todayDate]);
+
     const currentPhysicalDay = useMemo(() => {
-        const jsDay = new Date().getDay();
+        const jsDay = todayDate.getDay();
         return jsDay === 0 ? 7 : jsDay;
-    }, []);
+    }, [todayDate]);
 
     const effectiveToday = useMemo(() => {
         return ((currentPhysicalDay - 1 + scheduleOffset) % 7 + 7) % 7 + 1;
@@ -116,6 +129,7 @@ export default function HomeScreen() {
         const subscription = AppState.addEventListener('change', (nextAppState) => {
             if (nextAppState === 'active') {
                 checkAndResetAtMidnight();
+                setTodayDate(new Date());
             }
         });
         checkAndResetAtMidnight();
@@ -207,7 +221,7 @@ export default function HomeScreen() {
         weekday: 'long',
         month: 'short',
         day: 'numeric'
-    }).format(new Date()), []);
+    }).format(todayDate), [todayDate]);
 
     const scrollToTab = (tab: 'exercises' | 'water') => {
         if (activeTab !== tab) {
