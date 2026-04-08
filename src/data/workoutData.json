@@ -4,6 +4,7 @@
         "assignedDay": "Day 1",
         "focus": "Chest & Biceps",
         "isRecovery": false,
+        "anatomyFocus": ["chest", "biceps"],
         "exercises": [
             {
                 "id": "1-1",
@@ -66,6 +67,7 @@
         "assignedDay": "Day 2",
         "focus": "Back & Triceps",
         "isRecovery": false,
+        "anatomyFocus": ["back", "triceps"],
         "exercises": [
             {
                 "id": "2-1",
@@ -128,6 +130,7 @@
         "assignedDay": "Day 3",
         "focus": "Leg Day & Shoulders",
         "isRecovery": false,
+        "anatomyFocus": ["lower_body", "shoulders"],
         "exercises": [
             {
                 "id": "3-1",
@@ -217,6 +220,7 @@
         "assignedDay": "Day 4",
         "focus": "Abs & Cardio",
         "isRecovery": true,
+        "anatomyFocus": ["abs"],
         "exercises": [
             {
                 "id": "4-1",
@@ -258,6 +262,7 @@
         "assignedDay": "Day 5",
         "focus": "Back, Arms & Front Belts",
         "isRecovery": false,
+        "anatomyFocus": ["back", "biceps", "triceps", "shoulders"],
         "exercises": [
             {
                 "id": "5-1",
@@ -320,6 +325,7 @@
         "assignedDay": "Day 6",
         "focus": "Legs, Side Delt & Rear Delt & Chest",
         "isRecovery": false,
+        "anatomyFocus": ["lower_body", "shoulders", "chest"],
         "exercises": [
             {
                 "id": "6-1",
@@ -391,6 +397,7 @@
         "assignedDay": "Day 7",
         "focus": "Active Recovery",
         "isRecovery": true,
+        "anatomyFocus": ["abs"],
         "exercises": [
             {
                 "id": "7-1",

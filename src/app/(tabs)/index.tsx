@@ -1,4 +1,5 @@
 import { ExerciseCard } from '@/components/ExerciseCard';
+import { AnatomyModal } from '@/components/AnatomyModal';
 import { GymPrompt } from '@/components/GymPrompt';
 import { TempoReminder } from '@/components/TempoReminder';
 import { WaterTracker } from '@/components/WaterTracker';
@@ -92,6 +93,7 @@ export default function HomeScreen() {
     const [fetchedDays, setFetchedDays] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isAnatomyVisible, setIsAnatomyVisible] = useState(false);
 
     const [todayDate, setTodayDate] = useState(new Date());
 
@@ -204,16 +206,17 @@ export default function HomeScreen() {
 
     const todayWorkout = useMemo(() => {
         if (fetchedDays.length === 0) {
-            return { title: 'Loading...', exercises: [], dayNumber: 0 };
+            return { title: 'Loading...', exercises: [], dayNumber: 0, anatomyFocus: [] };
         }
         const workoutForDay = fetchedDays.find(d => d.dayNumber === effectiveToday);
         if (!workoutForDay) {
-            return { title: 'Rest Day', exercises: [], dayNumber: effectiveToday };
+            return { title: 'Rest Day', exercises: [], dayNumber: effectiveToday, anatomyFocus: ["abs"] };
         }
         return {
             title: workoutForDay.focus,
             exercises: workoutForDay.exercises || [],
-            dayNumber: workoutForDay.dayNumber
+            dayNumber: workoutForDay.dayNumber,
+            anatomyFocus: (workoutForDay as any).anatomyFocus || []
         };
     }, [effectiveToday, fetchedDays]);
 
@@ -290,22 +293,56 @@ export default function HomeScreen() {
                     }}>
                         // {formattedDate}
                     </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ marginBottom: 12 }}>
                         <Text style={{
                             color: appTheme.colors.textPrimary,
                             ...appTheme.typography.h1,
-                            fontSize: 34,
-                            textTransform: 'uppercase'
-                        }}>
+                            fontSize: 28, // Reduced from 34 for better fit
+                            textTransform: 'uppercase',
+                            lineHeight: 34,
+                        }}
+                        numberOfLines={2}
+                        adjustsFontSizeToFit
+                        >
                             {todayWorkout.title}
                         </Text>
+                    </View>
+
+                    {/* Action Bar */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        {todayWorkout.anatomyFocus.length > 0 && (
+                            <TouchableOpacity 
+                                onPress={() => setIsAnatomyVisible(true)}
+                                activeOpacity={0.7}
+                                style={{
+                                    backgroundColor: 'rgba(204, 255, 0, 0.1)',
+                                    borderWidth: 1,
+                                    borderColor: appTheme.colors.accent,
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 6,
+                                    flexDirection: 'row',
+                                    alignItems: 'center'
+                                }}
+                            >
+                                <Feather name="layers" size={12} color={appTheme.colors.accent} style={{ marginRight: 6 }} />
+                                <Text style={{
+                                    color: appTheme.colors.accent,
+                                    fontFamily: appTheme.typography.fontFamily.monoBold,
+                                    fontSize: 10,
+                                    letterSpacing: 1
+                                }}>[ VIEW ANATOMY ]</Text>
+                            </TouchableOpacity>
+                        )}
                         <View style={{
                             backgroundColor: appTheme.colors.blockFill,
-                            paddingVertical: 4,
+                            paddingVertical: 6,
                             paddingHorizontal: 12,
                             borderWidth: 1,
                             borderColor: appTheme.colors.accent,
+                            flexDirection: 'row',
+                            alignItems: 'center'
                         }}>
+                            <View style={{ width: 6, height: 6, backgroundColor: appTheme.colors.accent, borderRadius: 3, marginRight: 8 }} />
                             <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, letterSpacing: 1 }}>[ ACTIVE ]</Text>
                         </View>
                     </View>
@@ -381,6 +418,11 @@ export default function HomeScreen() {
                 </ScrollView>
 
             </View>
+            <AnatomyModal 
+                visible={isAnatomyVisible} 
+                onClose={() => setIsAnatomyVisible(false)} 
+                anatomyFocus={todayWorkout.anatomyFocus} 
+            />
         </SafeAreaView>
     );
 }
