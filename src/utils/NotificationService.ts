@@ -1,6 +1,7 @@
-import messaging from '@react-native-firebase/messaging';
+import { getMessaging, getToken, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
 import notifee, { AndroidImportance, AndroidVisibility } from '@notifee/react-native';
 import { Platform, PermissionsAndroid } from 'react-native';
+import { AuthService } from './AuthService';
 
 export const NotificationService = {
     /**
@@ -15,10 +16,13 @@ export const NotificationService = {
                 console.log('Android 13+ notification permission:', granted);
             }
 
-            const authStatus = await messaging().requestPermission();
+            // Ensure Firebase is ready before calling messaging()
+            await AuthService.waitForInitialization();
+
+            const authStatus = await requestPermission(getMessaging());
             const enabled = 
-                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+                authStatus === AuthorizationStatus.AUTHORIZED ||
+                authStatus === AuthorizationStatus.PROVISIONAL;
 
             if (enabled) {
                 console.log('FCM Authorization status:', authStatus);
@@ -51,7 +55,8 @@ export const NotificationService = {
      */
     getFcmToken: async () => {
         try {
-            const token = await messaging().getToken();
+            await AuthService.waitForInitialization();
+            const token = await getToken(getMessaging());
             console.log('--- FCM_TOKEN ---');
             console.log(token);
             console.log('-----------------');

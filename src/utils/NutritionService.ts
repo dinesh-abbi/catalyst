@@ -11,9 +11,6 @@ import {
 } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
 
-const db = getFirestore();
-const auth = getAuth();
-
 export type MealStatus = 'eaten' | 'missed' | 'alternative';
 
 export interface MealLog {
@@ -32,6 +29,8 @@ export const NutritionService = {
      */
     logMeal: async (logData: Omit<MealLog, 'userId' | 'timestamp'>) => {
         try {
+            const db = getFirestore();
+            const auth = getAuth();
             const user = auth.currentUser;
             if (!user) throw new Error("No authenticated user found");
 

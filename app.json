@@ -67,11 +67,19 @@
         {
           "googleServicesFile": "./android/app/google-services.json"
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Catalyst to access your photos to scan meals.",
+          "cameraPermission": "Allow Catalyst to access your camera to scan meals."
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": false,
+      "reactCompiler": false
     },
     "extra": {
       "router": {},

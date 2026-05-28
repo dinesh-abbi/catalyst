@@ -1,12 +1,13 @@
 import { GroceryListModal } from '@/components/GroceryListModal';
 import { MealCard } from '@/components/MealCard';
+import { AiNutritionModal } from '@/components/AiNutritionModal';
 import foodData from '@/data/food.json';
 import { useDietStore } from '@/store/useDietStore';
 import appTheme from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const SHOPPING_DAYS = [1, 8, 15, 22];
@@ -15,6 +16,7 @@ export default function NutritionScreen() {
     const { currentDay, startDate, mealLogs, updateMealStatus, nextDay, prevDay, initializeCycle, syncToDate } = useDietStore();
     const params = useLocalSearchParams<{ tab?: string }>();
     const [groceryModalVisible, setGroceryModalVisible] = useState(false);
+    const [aiModalVisible, setAiModalVisible] = useState(false);
 
     // Initial Sync logic
     useEffect(() => {
@@ -52,7 +54,10 @@ export default function NutritionScreen() {
 
     return (
         <SafeAreaView className="flex-1" style={{ backgroundColor: appTheme.colors.backgroundMain }}>
-            <View className="flex-1 pt-4">
+            <KeyboardAvoidingView 
+                className="flex-1 pt-4"
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
                 {/* Header Section */}
                 <View style={{ marginBottom: 16, paddingHorizontal: 20 }}>
                     <Text style={{
@@ -108,6 +113,24 @@ export default function NutritionScreen() {
                             <Feather name="shopping-cart" size={14} color={isShoppingDay ? appTheme.colors.accent : appTheme.colors.textTertiary} style={{ marginRight: 8 }} />
                             <Text style={{ color: isShoppingDay ? appTheme.colors.accent : appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 12, letterSpacing: 1 }}>
                                 {isShoppingDay ? 'RESTOCK' : 'LIST'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            onPress={() => setAiModalVisible(true)}
+                            style={{
+                                backgroundColor: 'rgba(204, 255, 0, 0.1)',
+                                paddingVertical: 8,
+                                paddingHorizontal: 16,
+                                borderWidth: 1,
+                                borderColor: appTheme.colors.accent,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                marginLeft: 8
+                            }}>
+                            <Feather name="zap" size={14} color={appTheme.colors.accent} style={{ marginRight: 8 }} />
+                            <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 12, letterSpacing: 1 }}>
+                                AI SCAN
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -188,12 +211,17 @@ export default function NutritionScreen() {
                         </View>
                     )}
                 </ScrollView>
-            </View>
+            </KeyboardAvoidingView>
 
             <GroceryListModal 
                 visible={groceryModalVisible} 
                 onClose={() => setGroceryModalVisible(false)} 
                 groceryData={foodData.grocery} 
+            />
+
+            <AiNutritionModal 
+                visible={aiModalVisible}
+                onClose={() => setAiModalVisible(false)}
             />
         </SafeAreaView>
     );

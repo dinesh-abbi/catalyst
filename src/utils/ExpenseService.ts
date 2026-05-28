@@ -11,9 +11,6 @@ import {
 } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
 
-const db = getFirestore();
-const auth = getAuth();
-
 export interface PurchaseLog {
     userId: string;
     itemName: string;
@@ -29,6 +26,8 @@ export const ExpenseService = {
      */
     logPurchase: async (purchaseData: Omit<PurchaseLog, 'userId' | 'timestamp'>) => {
         try {
+            const db = getFirestore();
+            const auth = getAuth();
             const user = auth.currentUser;
             if (!user) throw new Error("No authenticated user found");
 

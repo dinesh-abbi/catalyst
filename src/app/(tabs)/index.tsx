@@ -3,15 +3,16 @@ import { AnatomyModal } from '@/components/AnatomyModal';
 import { GymPrompt } from '@/components/GymPrompt';
 import { TempoReminder } from '@/components/TempoReminder';
 import { WaterTracker } from '@/components/WaterTracker';
+import { AiInsightCard } from '@/components/AiInsightCard';
 import { useWorkoutStore } from '@/store/useWorkoutStore';
 import appTheme from '@/theme';
 import { fetchExercises, logCompletedWorkout } from '@/utils/WorkoutService';
 import { useAlertStore } from '@/store/useAlertStore';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent, RefreshControl, ScrollView, Text, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native';
 import Animated, {
     FadeInDown,
     useAnimatedStyle,
@@ -89,6 +90,7 @@ export default function HomeScreen() {
     const { showAlert } = useAlertStore();
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams<{ tab?: string }>();
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState<'exercises' | 'water'>('exercises');
     const [fetchedDays, setFetchedDays] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -206,19 +208,34 @@ export default function HomeScreen() {
 
     const todayWorkout = useMemo(() => {
         if (fetchedDays.length === 0) {
-            return { title: 'Loading...', exercises: [], dayNumber: 0, anatomyFocus: [] };
+            if (isLoading) {
+                return { title: 'Loading...', exercises: [], dayNumber: 0, anatomyFocus: [] };
+            }
+            // Failsafe: if not loading and fetchedDays is empty, fall back to local workout generator
+            try {
+                const { getTodayWorkout } = require('@/utils/getTodayWorkout');
+                const fallbackWorkout = getTodayWorkout(effectiveToday);
+                return {
+                    title: fallbackWorkout.title,
+                    exercises: fallbackWorkout.exercises || [],
+                    dayNumber: fallbackWorkout.dayNumber,
+                    anatomyFocus: (fallbackWorkout as any).anatomyFocus || []
+                };
+            } catch (e) {
+                return { title: 'Rest Day', exercises: [], dayNumber: effectiveToday, anatomyFocus: ["abs"] };
+            }
         }
-        const workoutForDay = fetchedDays.find(d => d.dayNumber === effectiveToday);
+        const workoutForDay = fetchedDays.find(d => Number(d.dayNumber) === Number(effectiveToday));
         if (!workoutForDay) {
             return { title: 'Rest Day', exercises: [], dayNumber: effectiveToday, anatomyFocus: ["abs"] };
         }
         return {
             title: workoutForDay.focus,
             exercises: workoutForDay.exercises || [],
-            dayNumber: workoutForDay.dayNumber,
+            dayNumber: Number(workoutForDay.dayNumber),
             anatomyFocus: (workoutForDay as any).anatomyFocus || []
         };
-    }, [effectiveToday, fetchedDays]);
+    }, [effectiveToday, fetchedDays, isLoading]);
 
     const formattedDate = useMemo(() => new Intl.DateTimeFormat('en-US', {
         weekday: 'long',
@@ -279,20 +296,32 @@ export default function HomeScreen() {
 
     return (
         <SafeAreaView className="flex-1" style={{ backgroundColor: appTheme.colors.backgroundMain }}>
-            <View className="flex-1 pt-4">
+            <KeyboardAvoidingView 
+                className="flex-1 pt-4"
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
 
                 {/* Neo-Technical Header Section */}
                 <View style={{ marginBottom: 24, paddingHorizontal: 20 }}>
-                    <Text style={{
-                        color: appTheme.colors.textSecondary,
-                        fontFamily: appTheme.typography.fontFamily.mono,
-                        fontSize: 10,
-                        letterSpacing: 2,
-                        marginBottom: 4,
-                        textTransform: 'uppercase'
-                    }}>
-                        // {formattedDate}
-                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <Text style={{
+                            color: appTheme.colors.textSecondary,
+                            fontFamily: appTheme.typography.fontFamily.mono,
+                            fontSize: 10,
+                            letterSpacing: 2,
+                            textTransform: 'uppercase'
+                        }}>
+                            // {formattedDate}
+                        </Text>
+                        
+                        <TouchableOpacity 
+                            onPress={() => router.push('/weekly')}
+                            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 2 }}
+                        >
+                            <Feather name="calendar" size={10} color={appTheme.colors.accent} style={{ marginRight: 4 }} />
+                            <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 9, letterSpacing: 1 }}>[ WEEKLY PLAN ]</Text>
+                        </TouchableOpacity>
+                    </View>
                     <View style={{ marginBottom: 12 }}>
                         <Text style={{
                             color: appTheme.colors.textPrimary,
@@ -390,21 +419,33 @@ export default function HomeScreen() {
                                         colors={[appTheme.colors.accent]}
                                     />
                                 }
-                                ListFooterComponent={
+                                 ListFooterComponent={
                                     todayWorkout.exercises.length > 0 ? (
-                                        <TouchableOpacity
-                                            onPress={handleFinishWorkout}
-                                            style={{
-                                                marginTop: 20,
-                                                backgroundColor: appTheme.colors.accent,
-                                                paddingVertical: 18,
-                                                alignItems: 'center',
-                                                borderWidth: 1,
-                                                borderColor: 'rgba(255,255,255,0.2)'
-                                            }}
-                                        >
-                                            <Text style={{ color: '#000', fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 14, letterSpacing: 2 }}>FINISH WORKOUT</Text>
-                                        </TouchableOpacity>
+                                        <View>
+                                            <AiInsightCard 
+                                                workoutLog={{
+                                                    title: todayWorkout.title,
+                                                    exercises: todayWorkout.exercises.map((ex: any) => ({
+                                                        ...ex,
+                                                        isCompleted: !!completedExercises[ex.id],
+                                                        weight: loggedWeights[ex.id] || 0
+                                                    }))
+                                                }}
+                                            />
+                                            <TouchableOpacity
+                                                onPress={handleFinishWorkout}
+                                                style={{
+                                                    marginTop: 10,
+                                                    backgroundColor: appTheme.colors.accent,
+                                                    paddingVertical: 18,
+                                                    alignItems: 'center',
+                                                    borderWidth: 1,
+                                                    borderColor: 'rgba(255,255,255,0.2)'
+                                                }}
+                                            >
+                                                <Text style={{ color: '#000', fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 14, letterSpacing: 2 }}>FINISH WORKOUT</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     ) : null
                                 }
                             />
@@ -417,7 +458,7 @@ export default function HomeScreen() {
                     </View>
                 </ScrollView>
 
-            </View>
+            </KeyboardAvoidingView>
             <AnatomyModal 
                 visible={isAnatomyVisible} 
                 onClose={() => setIsAnatomyVisible(false)} 

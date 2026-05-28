@@ -1,13 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { UserService } from '@/utils/UserService';
 
 interface DietState {
     currentDay: number;
     startDate: string | null; // ISO Date String
     mealLogs: Record<number, Record<string, { status: 'eaten' | 'missed' | 'alternative' | 'none', note?: string }>>;
     boughtItems: Record<string, boolean>;
-    purchaseHistory: { itemName: string, cost: number, date: string }[];
+    purchaseHistory: { id?: string, itemName: string, cost: number, date: string, timestamp?: string, type?: 'food' | 'supplements' | 'gear' | 'misc', reason?: string, isManual?: boolean }[];
 
     setCurrentDay: (day: number) => void;
     nextDay: () => void;
@@ -15,9 +16,13 @@ interface DietState {
     updateMealStatus: (day: number, mealType: string, status: 'eaten' | 'missed' | 'alternative' | 'none', note?: string) => void;
     toggleBoughtItem: (itemName: string, cost: number) => void;
     resetBoughtItems: () => void;
+    addManualExpense: (itemName: string, cost: number, reason: string, type: 'food' | 'supplements' | 'gear' | 'misc', timestampOverride?: string) => void;
+    updateExpense: (id: string, data: Partial<{ itemName: string, cost: number, timestamp: string, type: string, reason: string }>) => void;
+    deleteExpense: (id: string) => void;
     initializeCycle: (dayFromToday: number) => void;
     syncToDate: () => void;
     getMonthlyTotal: () => number;
+    setPurchaseHistory: (history: any[]) => void;
 }
 
 const SHOPPING_DAYS = [1, 8, 15, 22];
@@ -69,7 +74,9 @@ export const useDietStore = create<DietState>()(
                     
                     let newHistory = [...state.purchaseHistory];
                     if (isBuying) {
-                        newHistory.push({ itemName, cost, date: today });
+                        const newExpense = { id: Date.now().toString(), itemName, cost, date: today, timestamp: new Date().toISOString(), type: 'food' as const };
+                        newHistory.push(newExpense);
+                        UserService.logExpense(newExpense).catch(console.error);
                     } else {
                         // Remove the latest instance of this item from history for simplicity
                         const lastIdx = [...newHistory].reverse().findIndex(p => p.itemName === itemName);
@@ -88,6 +95,43 @@ export const useDietStore = create<DietState>()(
                     };
                 }),
             resetBoughtItems: () => set({ boughtItems: {} }),
+            addManualExpense: (itemName: string, cost: number, reason: string, type: any, timestampOverride?: string) => 
+                set((state) => {
+                    const now = timestampOverride ? new Date(timestampOverride) : new Date();
+                    const today = now.toISOString().split('T')[0];
+                    const newExpense = { id: Date.now().toString(), itemName, cost, date: today, timestamp: now.toISOString(), type, reason, isManual: true };
+                    
+                    UserService.logExpense(newExpense).catch(console.error);
+
+                    return {
+                        purchaseHistory: [
+                            ...state.purchaseHistory,
+                            newExpense
+                        ]
+                    };
+                }),
+            updateExpense: (id: string, data: any) => 
+                set((state) => {
+                    const idx = state.purchaseHistory.findIndex(p => p.id === id);
+                    if (idx !== -1) {
+                        const updated = { ...state.purchaseHistory[idx], ...data };
+                        if (data.timestamp) {
+                            updated.date = new Date(data.timestamp).toISOString().split('T')[0];
+                        }
+                        const newHistory = [...state.purchaseHistory];
+                        newHistory[idx] = updated as any;
+                        
+                        UserService.updateExpenseDB(id, updated).catch(console.error);
+                        return { purchaseHistory: newHistory };
+                    }
+                    return state;
+                }),
+            deleteExpense: (id: string) => 
+                set((state) => {
+                    const newHistory = state.purchaseHistory.filter(p => p.id !== id);
+                    UserService.deleteExpenseDB(id).catch(console.error);
+                    return { purchaseHistory: newHistory };
+                }),
             initializeCycle: (dayNumber) => {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -123,6 +167,9 @@ export const useDietStore = create<DietState>()(
                         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
                     })
                     .reduce((total, p) => total + p.cost, 0);
+            },
+            setPurchaseHistory: (history) => {
+                set({ purchaseHistory: history });
             },
         }),
         {

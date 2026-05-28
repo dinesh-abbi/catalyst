@@ -193,7 +193,13 @@ cd android
 ./gradlew clean
 ./gradlew assembleRelease
 ```
- 
+<!-- 
+
+cd android
+./gradlew assembleRelease 
+
+-->
+
 **Locate the APK:**
 After the build finishes, the APK will be located at:
 `android/app/build/outputs/apk/release/app-release.apk`

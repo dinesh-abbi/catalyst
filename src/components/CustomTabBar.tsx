@@ -42,6 +42,7 @@ export const CustomTabBar = ({ state, descriptors, navigation }: BottomTabBarPro
                     const label = 
                         route.name === 'index' ? '[ TODAY ]' : 
                         route.name === 'weekly' ? '[ WEEKLY ]' : 
+                        route.name === 'chat' ? '[ CHAT ]' :
                         route.name === 'nutrition' ? '[ FUEL ]' : '[ PROFILE ]';
 
                     const onPress = () => {

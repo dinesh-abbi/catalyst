@@ -3,12 +3,10 @@ import {
     getDoc, 
     getFirestore, 
     setDoc, 
-    updateDoc 
+    updateDoc,
+    arrayUnion
 } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
-
-const db = getFirestore();
-const auth = getAuth();
 
 export interface UserProfile {
     uid: string;
@@ -18,6 +16,7 @@ export interface UserProfile {
     age: number;
     targetWeight: number;
     updatedAt: any;
+    expenses?: any[];
 }
 
 export const UserService = {
@@ -26,6 +25,8 @@ export const UserService = {
      */
     getProfile: async (): Promise<UserProfile | null> => {
         try {
+            const db = getFirestore();
+            const auth = getAuth();
             const user = auth.currentUser;
             if (!user) return null;
 
@@ -44,6 +45,7 @@ export const UserService = {
                     age: 0,
                     targetWeight: 0,
                     updatedAt: new Date(),
+                    expenses: [],
                 };
                 await setDoc(docRef, initialProfile);
                 return initialProfile;
@@ -59,6 +61,8 @@ export const UserService = {
      */
     updateProfile: async (data: Partial<UserProfile>) => {
         try {
+            const db = getFirestore();
+            const auth = getAuth();
             const user = auth.currentUser;
             if (!user) return false;
 
@@ -70,6 +74,77 @@ export const UserService = {
             return true;
         } catch (error) {
             console.error('Error updating user profile:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Log a new expense to Firestore array
+     */
+    logExpense: async (expense: any) => {
+        try {
+            const db = getFirestore();
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user || !expense) return false;
+
+            const docRef = doc(db, 'users', user.uid);
+            await updateDoc(docRef, {
+                expenses: arrayUnion(expense),
+            });
+            return true;
+        } catch (error) {
+            console.error('Error logging expense to DB:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Update an existing expense by replacing it in the array
+     */
+    updateExpenseDB: async (id: string, updatedExpense: any) => {
+        try {
+            const db = getFirestore();
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user || !id) return false;
+
+            const docRef = doc(db, 'users', user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                const expenses = data.expenses || [];
+                const updatedExpenses = expenses.map((exp: any) => exp.id === id ? { ...exp, ...updatedExpense } : exp);
+                await updateDoc(docRef, { expenses: updatedExpenses });
+            }
+            return true;
+        } catch (error) {
+            console.error('Error updating expense in DB:', error);
+            return false;
+        }
+    },
+
+    /**
+     * Delete an expense from the array
+     */
+    deleteExpenseDB: async (id: string) => {
+        try {
+            const db = getFirestore();
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user || !id) return false;
+
+            const docRef = doc(db, 'users', user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                const expenses = data.expenses || [];
+                const updatedExpenses = expenses.filter((exp: any) => exp.id !== id);
+                await updateDoc(docRef, { expenses: updatedExpenses });
+            }
+            return true;
+        } catch (error) {
+            console.error('Error deleting expense from DB:', error);
             return false;
         }
     }

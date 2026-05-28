@@ -7,17 +7,34 @@ import {
     type FirebaseAuthTypes
 } from '@react-native-firebase/auth';
 
-const auth = getAuth();
-
 /**
  * Authentication Service using React Native Firebase (Modular SDK API)
  */
 export const AuthService = {
     /**
+     * Wait for Firebase to be initialized properly (Native Bridge handshake)
+     */
+    waitForInitialization: async (): Promise<void> => {
+        const { getApp } = await import('@react-native-firebase/app');
+        let retries = 0;
+        while (retries < 20) {
+            try {
+                getApp();
+                return;
+            } catch (e) {
+                retries++;
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+        console.warn('Firebase: Initialization timeout. Proceeding with caution.');
+    },
+
+    /**
      * Register a new user with email and password
      */
     register: async (email: string, password: string) => {
         try {
+            const auth = getAuth();
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             return { user: userCredential.user, error: null };
         } catch (error: any) {
@@ -31,6 +48,7 @@ export const AuthService = {
      */
     login: async (email: string, password: string) => {
         try {
+            const auth = getAuth();
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             return { user: userCredential.user, error: null };
         } catch (error: any) {
@@ -44,6 +62,7 @@ export const AuthService = {
      */
     logout: async () => {
         try {
+            const auth = getAuth();
             await signOut(auth);
             return { error: null };
         } catch (error: any) {
@@ -56,13 +75,18 @@ export const AuthService = {
      * Get the current user synchronously
      */
     getCurrentUser: (): FirebaseAuthTypes.User | null => {
-        return auth.currentUser;
+        try {
+            return getAuth().currentUser;
+        } catch (e) {
+            return null;
+        }
     },
 
     /**
      * Subscribe to authentication state changes
      */
     onAuthStateChanged: (callback: (user: FirebaseAuthTypes.User | null) => void) => {
+        const auth = getAuth();
         return onAuthStateChanged(auth, callback);
     }
 };

@@ -5,10 +5,10 @@ import 'react-native-reanimated';
 import '../../global.css';
 
 // Import our centralized theme
-import appTheme from '../theme';
+import appTheme from '@/theme';
 
 import * as Notifications from 'expo-notifications';
-import { requestPermissionsAndSchedule } from '../utils/notifications';
+import { requestPermissionsAndSchedule } from '@/utils/notifications';
 
 import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
@@ -17,28 +17,38 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
-import { PremiumSplash } from '../components/PremiumSplash';
+import { PremiumSplash } from '@/components/PremiumSplash';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthService } from '../utils/AuthService';
+import { AuthService } from '@/utils/AuthService';
 import LoginScreen from './login';
-import { ThemedAlert } from '../components/ThemedAlert';
-import { NotificationService } from '../utils/NotificationService';
-import messaging from '@react-native-firebase/messaging';
+import { ThemedAlert } from '@/components/ThemedAlert';
+import { NotificationService } from '@/utils/NotificationService';
+import { getMessaging, onMessage, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
 
 // Prevent auto-hide so we can control when to hide native splash
 SplashScreen.preventAutoHideAsync();
 
 // Register background messaging handler
-// This must be outside the component entry point
-try {
-  messaging().setBackgroundMessageHandler(async remoteMessage => {
-    console.log('FCM Background Message:', remoteMessage);
-    // Standard FCM background handling is usually enough for display, 
-    // but you can add custom Notifee logic here as well.
-  });
-} catch (e) {
-  console.error("FCM Background Registration Error:", e);
-}
+// This must be outside the component entry point to handle notifications when the app is killed.
+const registerBackgroundHandler = async () => {
+  try {
+    // Check if Firebase is initialized before calling messaging()
+    const { getApp } = await import('@react-native-firebase/app');
+    try {
+      getApp(); // Throws if no app
+      setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
+        console.log('FCM Background Message:', remoteMessage);
+        // Custom background logic here
+      });
+    } catch (e) {
+      console.log('FCM: Waiting for default app initialization...');
+    }
+  } catch (e) {
+    console.error("FCM Background Registration Error:", e);
+  }
+};
+
+registerBackgroundHandler();
 
 const NativeTheme: Theme = {
   dark: true,
@@ -99,11 +109,21 @@ export default function RootLayout() {
 
   // Handle auth state changes
   useEffect(() => {
-    const subscriber = AuthService.onAuthStateChanged((user) => {
-      setUser(user);
-      if (initializing) setInitializing(false);
-    });
-    return subscriber; 
+    let subscriber: (() => void) | undefined;
+    
+    const initAuth = async () => {
+      await AuthService.waitForInitialization();
+      subscriber = AuthService.onAuthStateChanged((user) => {
+        setUser(user);
+        if (initializing) setInitializing(false);
+      });
+    };
+
+    initAuth();
+    
+    return () => {
+      if (subscriber) subscriber();
+    };
   }, [initializing]);
 
   // Handle notification deep links safely
@@ -131,26 +151,33 @@ export default function RootLayout() {
 
   // Initialize Firebase Cloud Messaging & Notifee
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    
     const initNotifications = async () => {
+      await AuthService.waitForInitialization();
+      
       await NotificationService.requestPermissions();
       await NotificationService.createChannels();
       await NotificationService.getFcmToken();
+      
+      // Foreground listener
+      unsubscribe = onMessage(getMessaging(), async remoteMessage => {
+        console.log('FCM Foreground Message:', remoteMessage);
+        if (remoteMessage.notification) {
+          await NotificationService.displayNotification(
+            remoteMessage.notification.title || 'CATALYST NOTICE',
+            remoteMessage.notification.body || '',
+            remoteMessage.data
+          );
+        }
+      });
     };
+    
     initNotifications();
 
-    // Foreground listener
-    const unsubscribe = messaging().onMessage(async remoteMessage => {
-      console.log('FCM Foreground Message:', remoteMessage);
-      if (remoteMessage.notification) {
-        await NotificationService.displayNotification(
-          remoteMessage.notification.title || 'CATALYST NOTICE',
-          remoteMessage.notification.body || '',
-          remoteMessage.data
-        );
-      }
-    });
-
-    return unsubscribe;
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   if (!fontsLoaded || initializing) {
@@ -170,7 +197,9 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="wake" options={{ presentation: 'modal', headerShown: false }} />
               <Stack.Screen name="go" options={{ presentation: 'modal', headerShown: false }} />
-              <Stack.Screen name="complete" options={{ presentation: 'modal', headerShown: false }} />
+              <Stack.Screen name="chat" options={{ presentation: 'modal', headerShown: false }} />
+              <Stack.Screen name="expenses" options={{ presentation: 'modal', headerShown: false }} />
+              <Stack.Screen name="edit-expense" options={{ presentation: 'modal', headerShown: false }} />
               <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
             </Stack>
           )}
