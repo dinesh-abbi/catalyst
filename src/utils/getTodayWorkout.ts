@@ -36,7 +36,18 @@ export const workoutData: WorkoutDayRaw[] = workoutDataJSON as WorkoutDayRaw[];
  * @returns {TodayWorkout}
  */
 export function getWorkoutByDayNumber(dayNumber: number): TodayWorkout {
-    const workoutForDay = workoutData.find(day => day.dayNumber === dayNumber);
+    let daysSource = workoutData;
+    try {
+        const { useWorkoutStore } = require('@/store/useWorkoutStore');
+        const customDays = useWorkoutStore.getState().customWorkoutDays;
+        if (customDays && customDays.length > 0) {
+            daysSource = customDays;
+        }
+    } catch (e) {
+        // fallback
+    }
+
+    const workoutForDay = daysSource.find(day => day.dayNumber === dayNumber);
 
     if (!workoutForDay) {
         // Failsafe return if something goes unexpectedly wrong

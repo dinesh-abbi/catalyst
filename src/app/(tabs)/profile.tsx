@@ -4,6 +4,8 @@ import { AuthService } from '@/utils/AuthService';
 import { UserProfile, UserService } from '@/utils/UserService';
 import { useAlertStore } from '@/store/useAlertStore';
 import { Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
     ActivityIndicator, 
@@ -29,6 +31,7 @@ export default function ProfileScreen() {
     const [heightStr, setHeightStr] = useState('');
     const [ageStr, setAgeStr] = useState('');
     const [targetWeightStr, setTargetWeightStr] = useState('');
+    const [biometricsEnabled, setBiometricsEnabled] = useState(false);
     const [expenseName, setExpenseName] = useState('');
     const [expenseCost, setExpenseCost] = useState('');
     const [expenseReason, setExpenseReason] = useState('');
@@ -60,7 +63,53 @@ export default function ProfileScreen() {
                 setPurchaseHistory(data.expenses);
             }
         }
+        
+        // Load Biometric Settings
+        const enabled = await AsyncStorage.getItem('biometrics_enabled');
+        setBiometricsEnabled(enabled === 'true');
+        
         setLoading(false);
+    };
+
+    const handleToggleBiometrics = async () => {
+        const targetState = !biometricsEnabled;
+        
+        try {
+            if (targetState) {
+                const hasHardware = await LocalAuthentication.hasHardwareAsync();
+                const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+                
+                if (!hasHardware) {
+                    showAlert('ERROR', 'This device does not support biometric authentication.', 'ERROR');
+                    return;
+                }
+                
+                if (!isEnrolled) {
+                    showAlert('ERROR', 'No biometric inputs registered. Please enroll FaceID/Fingerprint on your device.', 'ERROR');
+                    return;
+                }
+
+                // Verify biometrics before enabling
+                const result = await LocalAuthentication.authenticateAsync({
+                    promptMessage: 'VALIDATE BIOMETRIC SHIELD STATUS',
+                    fallbackLabel: 'Use passcode',
+                });
+
+                if (result.success) {
+                    await AsyncStorage.setItem('biometrics_enabled', 'true');
+                    setBiometricsEnabled(true);
+                    showAlert('SUCCESS', 'Biometric Shield fully enforced.', 'SUCCESS');
+                } else {
+                    showAlert('ERROR', 'Authentication failed. Biometric shield inactive.', 'ERROR');
+                }
+            } else {
+                await AsyncStorage.setItem('biometrics_enabled', 'false');
+                setBiometricsEnabled(false);
+                showAlert('WARNING', 'Biometric security shield disengaged.', 'INFO');
+            }
+        } catch (e) {
+            showAlert('ERROR', 'Biometric engine driver exception.', 'ERROR');
+        }
     };
 
 
@@ -156,7 +205,7 @@ export default function ProfileScreen() {
 
                     {/* Stats Grid */}
                     <Animated.View entering={FadeInDown.duration(600)} style={styles.section}>
-                        <Text style={styles.sectionLabel}>// PHYSICAL_METRICS</Text>
+                        <Text style={styles.sectionLabel}>{"// PHYSICAL_METRICS"}</Text>
                         
                         <View style={styles.statsGrid}>
                             <View style={styles.statBox}>
@@ -198,7 +247,7 @@ export default function ProfileScreen() {
 
                     {/* Goals Section */}
                     <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.section}>
-                        <Text style={styles.sectionLabel}>// PERFORMANCE_TARGETS</Text>
+                        <Text style={styles.sectionLabel}>{"// PERFORMANCE_TARGETS"}</Text>
                         <View style={styles.statBoxFull}>
                             <Text style={styles.statLabel}>TARGET_WEIGHT (KG)</Text>
                             <TextInput 
@@ -212,9 +261,54 @@ export default function ProfileScreen() {
                         </View>
                     </Animated.View>
 
+                    {/* Security Shield Section */}
+                    <Animated.View entering={FadeInDown.delay(250).duration(600)} style={styles.section}>
+                        <Text style={styles.sectionLabel}>{"// SECURITY_SHIELD"}</Text>
+                        <TouchableOpacity 
+                            style={[
+                                styles.statBoxFull, 
+                                { 
+                                    flexDirection: 'row', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    borderColor: biometricsEnabled ? appTheme.colors.accent : appTheme.colors.blockBorder,
+                                    backgroundColor: biometricsEnabled ? 'rgba(204, 255, 0, 0.03)' : appTheme.colors.blockFill
+                                }
+                            ]}
+                            onPress={handleToggleBiometrics}
+                            activeOpacity={0.8}
+                        >
+                            <View style={{ flex: 1, paddingRight: 16 }}>
+                                <Text style={[styles.statLabel, { color: biometricsEnabled ? appTheme.colors.accent : appTheme.colors.textSecondary }]}>
+                                    BIOMETRIC_LOCK
+                                </Text>
+                                <Text style={{ fontFamily: appTheme.typography.fontFamily.heading, fontSize: 16, color: appTheme.colors.textPrimary }}>
+                                    {biometricsEnabled ? 'SHIELD_ENFORCED' : 'SHIELD_INACTIVE'}
+                                </Text>
+                                <Text style={{ color: appTheme.colors.textTertiary, fontFamily: appTheme.typography.fontFamily.mono, fontSize: 9, marginTop: 6, letterSpacing: 0.5 }}>
+                                    [ REQUIRES FACEID OR FINGERPRINT TO GAIN APP ACCESS ]
+                                </Text>
+                            </View>
+                            <View 
+                                style={{ 
+                                    width: 44, 
+                                    height: 24, 
+                                    backgroundColor: biometricsEnabled ? appTheme.colors.accent : '#222', 
+                                    borderWidth: 1,
+                                    borderColor: biometricsEnabled ? appTheme.colors.accent : '#444',
+                                    padding: 2,
+                                    justifyContent: 'center',
+                                    alignItems: biometricsEnabled ? 'flex-end' : 'flex-start'
+                                }}
+                            >
+                                <View style={{ width: 18, height: 18, backgroundColor: biometricsEnabled ? '#000' : '#888' }} />
+                            </View>
+                        </TouchableOpacity>
+                    </Animated.View>
+
                     {/* Fuel Expenses Section */}
                     <Animated.View entering={FadeInDown.delay(300).duration(600)} style={styles.section}>
-                        <Text style={styles.sectionLabel}>// FINANCIAL_SYNC</Text>
+                        <Text style={styles.sectionLabel}>{"// FINANCIAL_SYNC"}</Text>
                         <View style={[styles.statBoxFull, { borderColor: appTheme.colors.accent, backgroundColor: 'rgba(204, 255, 0, 0.05)' }]}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <View>
@@ -231,7 +325,7 @@ export default function ProfileScreen() {
 
                     {/* Manual Expenses Section */}
                     <Animated.View entering={FadeInDown.delay(400).duration(600)} style={styles.section}>
-                        <Text style={styles.sectionLabel}>// LOG_MANUAL_EXPENSE</Text>
+                        <Text style={styles.sectionLabel}>{"// LOG_MANUAL_EXPENSE"}</Text>
                         
                         <View style={styles.statsGrid}>
                             <View style={[styles.statBox, { flex: 2 }]}>
@@ -366,7 +460,7 @@ export default function ProfileScreen() {
                     {currentMonthExpenses.length > 0 && (
                         <Animated.View entering={FadeInDown.delay(500).duration(600)} style={styles.section}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>// EXPENSE_TIMELINE_PREVIEW</Text>
+                                <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>{"// EXPENSE_TIMELINE_PREVIEW"}</Text>
                                 <TouchableOpacity onPress={() => router.push('/expenses')}>
                                     <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 9, letterSpacing: 1 }}>[ VIEW LEDGER ]</Text>
                                 </TouchableOpacity>

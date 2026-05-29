@@ -14,10 +14,13 @@ import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 
 import { PremiumSplash } from '@/components/PremiumSplash';
+import { BiometricLock } from '@/components/BiometricLock';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthService } from '@/utils/AuthService';
 import LoginScreen from './login';
@@ -84,6 +87,8 @@ export default function RootLayout() {
   const [isSplashComplete, setIsSplashComplete] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [isLocked, setIsLocked] = useState(false);
+  const backgroundedAtRef = useRef<number | null>(null);
   const router = useRouter();
 
   const [fontsLoaded] = useFonts({
@@ -113,8 +118,21 @@ export default function RootLayout() {
     
     const initAuth = async () => {
       await AuthService.waitForInitialization();
-      subscriber = AuthService.onAuthStateChanged((user) => {
+      subscriber = AuthService.onAuthStateChanged(async (user) => {
         setUser(user);
+        
+        if (user) {
+          // If a user is active, check if Biometric Shield is enabled
+          const enabled = await AsyncStorage.getItem('biometrics_enabled');
+          if (enabled === 'true') {
+            setIsLocked(true);
+          } else {
+            setIsLocked(false);
+          }
+        } else {
+          setIsLocked(false);
+        }
+
         if (initializing) setInitializing(false);
       });
     };
@@ -125,6 +143,32 @@ export default function RootLayout() {
       if (subscriber) subscriber();
     };
   }, [initializing]);
+
+  // AppState Listener — only re-lock if app was in background > 5 minutes
+  const LOCK_GRACE_MS = 5 * 60 * 1000; // 5 minutes
+
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // Record the exact moment the app was minimized
+        backgroundedAtRef.current = Date.now();
+      } else if (nextAppState === 'active' && user) {
+        const enabled = await AsyncStorage.getItem('biometrics_enabled');
+        if (enabled === 'true') {
+          const backgroundedAt = backgroundedAtRef.current;
+          const elapsed = backgroundedAt ? Date.now() - backgroundedAt : Infinity;
+          // Only lock if away for longer than the grace period
+          if (elapsed > LOCK_GRACE_MS) {
+            setIsLocked(true);
+          }
+          backgroundedAtRef.current = null;
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [user]);
 
   // Handle notification deep links safely
   useEffect(() => {
@@ -184,26 +228,49 @@ export default function RootLayout() {
     return null;
   }
 
+  const AppContent = () => {
+    const ty = useSharedValue(28);
+    const op = useSharedValue(0);
+
+    useEffect(() => {
+      ty.value = withSpring(0, { damping: 22, stiffness: 160, mass: 0.8 });
+      op.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.quad) });
+    }, []);
+
+    const enterStyle = useAnimatedStyle(() => ({
+      flex: 1,
+      transform: [{ translateY: ty.value }],
+      opacity: op.value,
+    }));
+
+    return (
+      <Animated.View style={enterStyle}>
+        {!user ? (
+          <LoginScreen />
+        ) : (
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="wake" options={{ presentation: 'modal', headerShown: false }} />
+            <Stack.Screen name="go" options={{ presentation: 'modal', headerShown: false }} />
+            <Stack.Screen name="chat" options={{ presentation: 'modal', headerShown: false }} />
+            <Stack.Screen name="expenses" options={{ presentation: 'modal', headerShown: false }} />
+            <Stack.Screen name="edit-expense" options={{ presentation: 'modal', headerShown: false }} />
+            <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+          </Stack>
+        )}
+      </Animated.View>
+    );
+  };
+
   return (
     <SafeAreaProvider>
       <ThemeProvider value={NativeTheme}>
         {!isSplashComplete && <PremiumSplash onComplete={() => setIsSplashComplete(true)} />}
+        {isSplashComplete && isLocked && user && (
+          <BiometricLock onSuccess={() => setIsLocked(false)} />
+        )}
 
-        <Animated.View style={{ flex: 1 }} entering={FadeIn.duration(1000).delay(200)}>
-          {!user ? (
-            <LoginScreen />
-          ) : (
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="wake" options={{ presentation: 'modal', headerShown: false }} />
-              <Stack.Screen name="go" options={{ presentation: 'modal', headerShown: false }} />
-              <Stack.Screen name="chat" options={{ presentation: 'modal', headerShown: false }} />
-              <Stack.Screen name="expenses" options={{ presentation: 'modal', headerShown: false }} />
-              <Stack.Screen name="edit-expense" options={{ presentation: 'modal', headerShown: false }} />
-              <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
-            </Stack>
-          )}
-        </Animated.View>
+        <AppContent />
         <StatusBar style="light" />
         <ThemedAlert />
       </ThemeProvider>

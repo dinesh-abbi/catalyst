@@ -4,8 +4,29 @@ import { EXPO_PUBLIC_GEMINI_API_KEY } from "@env";
 import { AiUsageService } from './AiUsageService';
 import { useAiStore } from '@/store/useAiStore';
 
-const API_KEY = EXPO_PUBLIC_GEMINI_API_KEY || "";
-const genAI = new GoogleGenerativeAI(API_KEY);
+function getApiKey(): string {
+    let key = '';
+    try {
+        key = process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
+    } catch (_) {}
+
+    if (!key) {
+        try {
+            key = EXPO_PUBLIC_GEMINI_API_KEY || '';
+        } catch (_) {}
+    }
+
+    return key;
+}
+
+function getGenerativeModelInstance(modelId: string) {
+    const key = getApiKey();
+    if (!key) {
+        throw new Error("GEMINI_API_KEY is not configured inside the environment (.env).");
+    }
+    const genAI = new GoogleGenerativeAI(key);
+    return genAI.getGenerativeModel({ model: modelId });
+}
 
 /**
  * Gets the currently selected model from the global AI store.
@@ -58,13 +79,7 @@ export class GeminiService {
         const rpd = getActiveModelRpd();
 
         try {
-            if (!API_KEY) throw new Error("GEMINI_API_KEY is not configured.");
-
-            if (await isQuotaExceeded(modelId, rpd)) {
-                return `__QUOTA_EXCEEDED__:${modelId}:${rpd}`;
-            }
-
-            const model = genAI.getGenerativeModel({ model: modelId });
+            const model = getGenerativeModelInstance(modelId);
             console.log(`[Gemini] Calling model: ${modelId}`);
             
             const result = await this.withRetry(() => model.generateContent(prompt));
@@ -97,8 +112,6 @@ export class GeminiService {
         const selectedModel = useAiStore.getState().selectedModel;
 
         try {
-            if (!API_KEY) throw new Error("GEMINI_API_KEY is not configured.");
-
             if (!selectedModel.supportsVision) {
                 return `__NO_VISION__:${selectedModel.name}`;
             }
@@ -111,7 +124,7 @@ export class GeminiService {
                 inlineData: { data: base64Image, mimeType },
             };
 
-            const model = genAI.getGenerativeModel({ model: modelId });
+            const model = getGenerativeModelInstance(modelId);
             console.log(`[Gemini Vision] Calling model: ${modelId}`);
             
             const result = await this.withRetry(() => model.generateContent([prompt, imagePart]));

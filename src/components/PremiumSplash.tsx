@@ -1,67 +1,90 @@
-import React, { useEffect } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { Platform, StyleSheet } from 'react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import Animated, {
     Easing,
     runOnJS,
     useAnimatedStyle,
     useSharedValue,
-    withDelay,
-    withTiming
+    withTiming,
 } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+
+// MP4 / H.264 portrait — universally supported on Android & iOS
+const LAUNCHER_VIDEO = require('../../assets/videos/launcher.mp4');
+
+// Maximum time to show the splash before auto-advancing (safety net)
+const MAX_SPLASH_MS = 8000;
 
 interface PremiumSplashProps {
     onComplete: () => void;
 }
 
 export const PremiumSplash = ({ onComplete }: PremiumSplashProps) => {
-    // Initial state matches the native splash (fully visible, standard scale)
-    const logoScale = useSharedValue(1);
-    const logoOpacity = useSharedValue(1);
-    const containerOpacity = useSharedValue(1);
+    const fadeOut = useSharedValue(1);
+    const didComplete = useRef(false);
 
-    useEffect(() => {
-        // Hold the native-looking state for a moment to ensure a seamless handoff
-
-        // Subtle premium pulse before exit
-        logoScale.value = withDelay(800, withTiming(1.05, { duration: 600, easing: Easing.inOut(Easing.ease) }));
-
-        // Fade and scale out
-        logoOpacity.value = withDelay(1200, withTiming(0, { duration: 500 }));
-        logoScale.value = withDelay(1200, withTiming(1.3, { duration: 600, easing: Easing.in(Easing.quad) }));
-
-        // Container fade out and trigger completion
-        containerOpacity.value = withDelay(1400, withTiming(0, { duration: 400 }, (finished) => {
-            if (finished) {
-                runOnJS(onComplete)();
-            }
-        }));
+    const triggerHaptic = useCallback(() => {
+        if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        }
     }, []);
 
-    const logoStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: logoScale.value }],
-        opacity: logoOpacity.value,
-    }));
+    /** Fades out the splash and calls onComplete exactly once */
+    const finish = useCallback(() => {
+        if (didComplete.current) return;
+        didComplete.current = true;
+        triggerHaptic();
+        fadeOut.value = withTiming(
+            0,
+            { duration: 450, easing: Easing.in(Easing.quad) },
+            (finished) => {
+                if (finished) runOnJS(onComplete)();
+            }
+        );
+    }, [onComplete, fadeOut, triggerHaptic]);
+
+    const player = useVideoPlayer(LAUNCHER_VIDEO, (p) => {
+        p.loop = false;
+        p.muted = true;
+        p.play();
+    });
+
+    useEffect(() => {
+        // Primary signal — video reached its end
+        const sub = player.addListener('playToEnd', finish);
+
+        // Secondary signal — status changes to idle/paused after playback
+        const statusSub = player.addListener('statusChange', ({ status }) => {
+            // 'idle' means playback finished on some Android ExoPlayer versions
+            if (status === 'idle') finish();
+        });
+
+        // Tertiary safety net — if the video never fires any event (codec
+        // unsupported, file missing, etc.) we still advance after MAX_SPLASH_MS
+        const safetyTimer = setTimeout(finish, MAX_SPLASH_MS);
+
+        return () => {
+            sub.remove();
+            statusSub.remove();
+            clearTimeout(safetyTimer);
+        };
+    }, [player, finish]);
 
     const containerStyle = useAnimatedStyle(() => ({
-        opacity: containerOpacity.value,
+        opacity: fadeOut.value,
     }));
 
     return (
         <Animated.View style={[styles.container, containerStyle]}>
-            <View style={styles.centerStage}>
-                {/* 
-                  The image size here (200x200) coordinates with the `imageWidth: 200` 
-                  setting in app.json for the native expo-splash-screen, ensuring no layout jump 
-                  when React Native takes over rendering.
-                */}
-                <Animated.View style={logoStyle}>
-                    <Image
-                        source={require('../../assets/images/legacy-icon.png')}
-                        style={styles.logoImage}
-                        resizeMode="contain"
-                    />
-                </Animated.View>
-            </View>
+            <VideoView
+                player={player}
+                style={styles.video}
+                contentFit="cover"
+                nativeControls={false}
+                allowsFullscreen={false}
+                allowsPictureInPicture={false}
+            />
         </Animated.View>
     );
 };
@@ -69,18 +92,12 @@ export const PremiumSplash = ({ onComplete }: PremiumSplashProps) => {
 const styles = StyleSheet.create({
     container: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: '#0b0f19', // Matches app.json native splash background exactly
+        backgroundColor: '#000000',
         zIndex: 9999,
-        justifyContent: 'center',
-        alignItems: 'center',
     },
-    centerStage: {
-        justifyContent: 'center',
-        alignItems: 'center',
+    video: {
+        flex: 1,
         width: '100%',
-    },
-    logoImage: {
-        width: 200,
-        height: 200,
+        height: '100%',
     },
 });

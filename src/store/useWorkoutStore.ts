@@ -2,6 +2,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+export interface Exercise {
+    id: string;
+    name: string;
+    sets: string;
+    reps: string;
+    tempo: string;
+    notes: string;
+    isCardio?: boolean;
+}
+
+export interface WorkoutDayRaw {
+    dayNumber: number;
+    assignedDay: string;
+    focus: string;
+    isRecovery: boolean;
+    exercises: Exercise[];
+}
+
 interface WorkoutState {
     // === State ===
     completedExercises: Record<string, boolean>;
@@ -13,6 +31,7 @@ interface WorkoutState {
     scheduleOffset: number; // Persistent shift for workouts (e.g. -1 means everything moved back 1 day)
     gymMorningPromptStatus: 'none' | 'yes' | 'no';
     gymEveningPromptStatus: 'none' | 'yes' | 'no';
+    customWorkoutDays: WorkoutDayRaw[] | null;
 
     // === Actions ===
     toggleExercise: (id: string) => void;
@@ -24,6 +43,7 @@ interface WorkoutState {
     resetDailyChecklist: () => void;
     setDismissTempoReminder: (dismiss: boolean) => void;
     checkAndResetAtMidnight: () => void;
+    setCustomWorkoutDays: (days: WorkoutDayRaw[] | null) => void;
 }
 
 export const useWorkoutStore = create<WorkoutState>()(
@@ -38,6 +58,9 @@ export const useWorkoutStore = create<WorkoutState>()(
             scheduleOffset: 0,
             gymMorningPromptStatus: 'none',
             gymEveningPromptStatus: 'none',
+            customWorkoutDays: null,
+
+            setCustomWorkoutDays: (days) => set({ customWorkoutDays: days }),
 
             toggleExercise: (id) =>
                 set((state) => {
@@ -159,9 +182,8 @@ export const useWorkoutStore = create<WorkoutState>()(
                 scheduleOffset: state.scheduleOffset,
                 gymMorningPromptStatus: state.gymMorningPromptStatus,
                 gymEveningPromptStatus: state.gymEveningPromptStatus,
-                // Optional: you can choose to persist completedExercises if you want them to survive app unloads during the same day. 
-                // We persist it here, but `checkAndResetAtMidnight` handles clearing it on a new day.
                 completedExercises: state.completedExercises,
+                customWorkoutDays: state.customWorkoutDays,
             }),
             onRehydrateStorage: () => (state) => {
                 // As soon as the store rehydrates from AsyncStorage, check if it's a new day
