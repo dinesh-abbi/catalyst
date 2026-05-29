@@ -1,79 +1,130 @@
-# Welcome to your Expo app 👋
+# CATALYST 🔋
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Welcome to **Catalyst**—a high-performance, mobile fitness and fuel tracker constructed in a sleek, neo-technical brutalist aesthetic featuring pure OLED black (`#000000`) and high-contrast Acid Green (`#CCFF00`) visuals. 
 
-## Get started
+This repository coordinates an Expo-based React Native mobile application utilizing React Native Reanimated, NativeWind, and Native Firebase services.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## ⚡ Quick Start & Development
 
-2. Start the app
+To launch the development suite, follow these steps:
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Deploying to Production (EAS)
-
-To build the app for actual production devices (generating an `.aab`/`.apk` for Android or `.ipa` for iOS), you must use the Expo Application Services CLI (`eas-cli`), **not** `npx eas`.
-
-### 1. Install EAS CLI globally
-Because `eas` is a standalone tool, you need to install it globally on your machine:
+### 1. Synchronize Dependencies
+Ensure packages are up to date:
 ```bash
-npm install -g eas-cli
+npm install
 ```
 
-### 2. Log in to Expo
-Authenticate your terminal with your Expo account:
+### 2. Boot up Metro Bundler
+Start the development bundler interface:
 ```bash
-eas login
+npm start
 ```
 
-### 3. Run the Production Build
-This command will upload your project to Expo's servers and build the binaries.
+### 3. Mount on Device/Emulator
+With a running Android Emulator or connected physical device in debug mode, compile and push the app:
 ```bash
-eas build --profile production --platform all
-```
-*Note: You can specify `--platform android` or `--platform ios` instead of `all` to build just one.*
-
-### 4. Publishing Over-the-Air Updates
-If you only made JavaScript or Asset changes and want to update the live app instantly without rebuilding the binary:
-```bash
-eas update --branch production --message "Update description here"
+npm run android
 ```
 
-## Get a fresh project
+---
 
-When you're ready, run:
+## 🛡️ Biometric Security Shield (FaceID / Fingerprint)
 
+We have integrated a native **Biometric security shield** that wraps the application gateway, enforcing secure authorization.
+
+### How it Works
+1. **Enabling the Shield**: Navigate to your `USER_PROFILE` tab, scroll to the `// SECURITY_SHIELD` section, and toggle the `BIOMETRIC_LOCK` card. The app validates hardware capabilities and enrolled biometrics, prompting a secure validation check before locking state is activated.
+2. **Cold App Locking**: The app requires a biometric scan immediately after the initial Cyberpunk launch screen completes.
+3. **Background Minimization Lock**: Built using native `AppState` triggers. If the app is minimized (backgrounded) and returned to the foreground, it locks access instantly to guarantee absolute user privacy.
+
+### How to Test in Development
+
+#### A. On the Android Emulator:
+1. Open the **Emulator's Extended Controls** (the three dots `...` on the emulator toolbar).
+2. Navigate to **Fingerprint**.
+3. Under Android settings inside the emulator, go to *Security & Location* -> *Fingerprint*, and set up a lock screen PIN and enroll a mock fingerprint.
+4. Go to Catalyst Profile Settings -> toggle `BIOMETRIC_LOCK` on.
+5. Simulating scans:
+   - When the biometrics prompt appears, click **Touch Sensor** in the Emulator Fingerprint settings to simulate a successful match.
+   - Click other fingerprint IDs to simulate validation failures and observe the Cyber Red (`#FF3300`) warning readouts.
+
+#### B. On the iOS Simulator:
+1. In the simulator window menu, navigate to **Features** -> **Face ID** or **Touch ID**.
+2. Tick **Enrolled** to mimic device biometric enrollment.
+3. Toggle the switch card in Catalyst.
+4. When prompted for validation, go to simulator menu -> **Features** -> **Face ID** -> **Matching Face** to trigger a successful authentication.
+
+---
+
+## 🏗️ Production Android APK Builds
+
+This project has been custom-configured for fast, offline, local release builds to bypass cloud constraints.
+
+### Prerequisites (Local Compilation)
+- **Java Home**: JDK 21 (OpenJDK `17`/`21`) must be defined.
+- **Android SDK**: Correct environment variables defined inside `/android/local.properties`.
+  ```properties
+  sdk.dir=/usr/lib/android-sdk
+  ```
+
+---
+
+### Method A: Direct Gradle Release (Offline APK)
+
+The most robust way to build a standalone, offline installable `.apk` file that bypasses Expo cloud queues.
+
+#### 1. Perform Prebuild Sync
+If you modified native configurations (`app.json`, config plugins), clean and sync the Android folder first:
 ```bash
-npm run reset-project
+npx expo prebuild --platform android --clean
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+#### 2. Clean and Assemble
+Move to the Android project folder, flush old split caches, and compile the final release assets:
+```bash
+cd android
+./gradlew clean
+./gradlew assembleRelease
+```
 
-## Learn more
+#### 3. Retrieve and Install APK
+Your production-ready APK is compiled at:
+```
+android/app/build/outputs/apk/release/app-release.apk
+```
+Push the binary directly onto your connected device over ADB:
+```bash
+adb install android/app/build/outputs/apk/release/app-release.apk
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Method B: Standalone EAS Build (Cloud/Local)
 
-## Join the community
+To utilize Expo Application Services (EAS) for compiling:
 
-Join our community of developers creating universal apps.
+* **Trigger EAS Cloud Compile (APK output)**:
+  ```bash
+  eas build -p android --profile production-apk
+  ```
+* **Trigger Local Machine EAS CLI Compile**:
+  ```bash
+  npx eas-cli build -p android --profile production --local
+  ```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## 🛠️ Diagnostics & Cache Flush
+
+If you encounter native Gradle MD5 hash or split memory exceptions (`IncrementalSplitterRunnable`) during builds, flush the local assembly cache and run fresh:
+
+```bash
+# Clean project
+npx expo prebuild --clean
+cd android
+./gradlew cleanBuildCache
+./gradlew assembleRelease
+```
+
