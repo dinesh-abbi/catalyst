@@ -41,3 +41,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+google-services.json
+prebuild_error.log
+
+# Environment files — keep out of Git
+.env
+.env.*
+.env
