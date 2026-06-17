@@ -27,7 +27,6 @@ import LoginScreen from './login';
 import { ThemedAlert } from '@/components/ThemedAlert';
 import { NotificationService } from '@/utils/NotificationService';
 import { getMessaging, onMessage, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
-import { useAttendanceStore } from '@/store/useAttendanceStore';
 
 // Prevent auto-hide so we can control when to hide native splash
 SplashScreen.preventAutoHideAsync();
@@ -224,35 +223,6 @@ export default function RootLayout() {
       if (unsubscribe) unsubscribe();
     };
   }, []);
-
-  // Background Sync for offline attendance logs
-  useEffect(() => {
-    const syncLogs = async () => {
-      try {
-        const store = useAttendanceStore.getState();
-        if (store.offlineQueue.length > 0) {
-          console.log(`[Sync] Found ${store.offlineQueue.length} queued attendance logs. Synchronizing...`);
-          await store.processQueue();
-        }
-      } catch (e) {
-        console.warn("Offline sync check failed:", e);
-      }
-    };
-
-    if (user) {
-      // Sync on startup / authentication
-      syncLogs();
-
-      // Sync on app foregrounding
-      const subscription = AppState.addEventListener('change', (nextState) => {
-        if (nextState === 'active') {
-          syncLogs();
-        }
-      });
-
-      return () => subscription.remove();
-    }
-  }, [user]);
 
   if (!fontsLoaded || initializing) {
     return null;

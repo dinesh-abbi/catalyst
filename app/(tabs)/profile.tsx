@@ -16,16 +16,12 @@ import {
     TouchableOpacity, 
     View,
     KeyboardAvoidingView,
-    Platform,
-    Image
+    Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import * as ImagePicker from 'expo-image-picker';
-import { useAttendanceStore } from '@/store/useAttendanceStore';
-import { AttendanceService, AttendanceLog } from '@/utils/AttendanceService';
 
 export default function ProfileScreen() {
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -49,21 +45,10 @@ export default function ProfileScreen() {
     const { getMonthlyTotal, addManualExpense, purchaseHistory, setPurchaseHistory } = useDietStore();
     const router = useRouter();
 
-    const [recentAttendance, setRecentAttendance] = useState<AttendanceLog[]>([]);
-    const [attendanceStatus, setAttendanceStatus] = useState<string[]>(['[ SCANNER_STANDBY ]']);
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
-    const [uploadingImage, setUploadingImage] = useState(false);
-
-    const { offlineQueue, addToQueue, processQueue, isSyncing } = useAttendanceStore();
 
     useEffect(() => {
         loadProfile();
     }, []);
-
-    const loadAttendanceLogs = async () => {
-        const logs = await AttendanceService.getRecentLogs(3);
-        setRecentAttendance(logs);
-    };
 
     const loadProfile = async () => {
         setLoading(true);
@@ -83,99 +68,7 @@ export default function ProfileScreen() {
         const enabled = await AsyncStorage.getItem('biometrics_enabled');
         setBiometricsEnabled(enabled === 'true');
         
-        // Load recent attendance logs
-        loadAttendanceLogs();
-        
         setLoading(false);
-    };
-
-    const handleAttendanceImage = async (useCamera: boolean) => {
-        try {
-            const permissionResult = useCamera 
-                ? await ImagePicker.requestCameraPermissionsAsync()
-                : await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-            if (permissionResult.granted === false) {
-                showAlert("PERMISSION_DENIED", `Camera/photo permissions are required to scan attendance.`, "ERROR");
-                return;
-            }
-
-            const result = await (useCamera 
-                ? ImagePicker.launchCameraAsync({ quality: 0.8 }) 
-                : ImagePicker.launchImageLibraryAsync({ quality: 0.8 }));
-
-            if (result.canceled || !result.assets[0].uri) {
-                return;
-            }
-
-            const tempUri = result.assets[0].uri;
-            setSelectedImage(tempUri);
-            setUploadingImage(true);
-            setAttendanceStatus([
-                `[INIT] Initializing secure attendance log...`,
-            ]);
-
-            // Copy to persistent local storage and queue it
-            const localUri = await addToQueue(tempUri);
-            
-            setAttendanceStatus(prev => [
-                ...prev,
-                `[PERSIST] Saved evidence locally: ${localUri.split('/').pop()}`,
-                `[UPLINK] Contacting Discord & Firebase gateways...`,
-            ]);
-
-            // Attempt to upload/process queue immediately
-            const syncResult = await processQueue();
-
-            if (syncResult.uploaded > 0) {
-                setAttendanceStatus(prev => [
-                    ...prev,
-                    `[ONLINE] Uplink complete. Gateway status: 204.`,
-                    `[BACKUP] Firebase Firestore backup logged.`,
-                ]);
-                showAlert("ATTENDANCE MARKED", "Your log has been sent to Discord and saved to Firestore.", "SUCCESS");
-                loadAttendanceLogs();
-            } else {
-                setAttendanceStatus(prev => [
-                    ...prev,
-                    `[OFFLINE] Uplink failed. Connection offline.`,
-                    `[QUEUED] Log saved to local buffer queue for auto-sync.`,
-                ]);
-                showAlert("QUEUED (OFFLINE)", "You are offline. Image is saved locally and will auto-sync when online.", "INFO");
-            }
-        } catch (error) {
-            console.error("Attendance Log Error:", error);
-            setAttendanceStatus(prev => [
-                ...prev,
-                `[ERROR] System driver exception occurred.`,
-            ]);
-            showAlert("SYSTEM EXCEPTION", "Failed to mark attendance. Please try again.", "ERROR");
-        } finally {
-            setUploadingImage(false);
-        }
-    };
-
-    const handleForceSync = async () => {
-        if (offlineQueue.length === 0) return;
-        setUploadingImage(true);
-        setAttendanceStatus([`[SYNC] Manual override triggered. Emptying queue...`]);
-        
-        const result = await processQueue();
-        if (result.uploaded > 0) {
-            setAttendanceStatus(prev => [
-                ...prev,
-                `[SUCCESS] Flushed ${result.uploaded} items from local storage to gateways.`,
-            ]);
-            showAlert("SYNC COMPLETED", `Successfully uploaded ${result.uploaded} pending logs.`, "SUCCESS");
-            loadAttendanceLogs();
-        } else {
-            setAttendanceStatus(prev => [
-                ...prev,
-                `[ERROR] Manual sync failed. Verify internet connection.`,
-            ]);
-            showAlert("SYNC FAILED", "Still offline or unable to contact server.", "ERROR");
-        }
-        setUploadingImage(false);
     };
 
     const handleToggleBiometrics = async () => {
@@ -411,157 +304,6 @@ export default function ProfileScreen() {
                                 <View style={{ width: 18, height: 18, backgroundColor: biometricsEnabled ? '#000' : '#888' }} />
                             </View>
                         </TouchableOpacity>
-                    </Animated.View>
-
-                    {/* Office Attendance Section */}
-                    <Animated.View entering={FadeInDown.delay(280).duration(600)} style={styles.section}>
-                        <Text style={styles.sectionLabel}>{"// OFFICE_DASHBOARD"}</Text>
-                        
-                        <View style={[styles.statBoxFull, { borderColor: appTheme.colors.accent, backgroundColor: 'rgba(204, 255, 0, 0.02)' }]}>
-                            
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                <Text style={styles.statLabel}>OFFICE_ATTENDANCE_LOGS</Text>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <View style={{ width: 6, height: 6, backgroundColor: offlineQueue.length > 0 ? appTheme.colors.warning : appTheme.colors.success, borderRadius: 3 }} />
-                                    <Text style={{ fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 8, color: offlineQueue.length > 0 ? appTheme.colors.warning : appTheme.colors.success }}>
-                                        {offlineQueue.length > 0 ? `${offlineQueue.length}_PENDING` : 'SYSTEM_SYNCED'}
-                                    </Text>
-                                </View>
-                            </View>
-
-                            {/* Scanner Frame */}
-                            <View style={{ 
-                                height: selectedImage ? 220 : 120, 
-                                width: '100%', 
-                                borderWidth: 1, 
-                                borderColor: appTheme.colors.border, 
-                                backgroundColor: '#0c0c0c',
-                                justifyContent: 'center', 
-                                alignItems: 'center',
-                                position: 'relative',
-                                marginBottom: 16,
-                                overflow: 'hidden'
-                            }}>
-                                {selectedImage ? (
-                                    <Image source={{ uri: selectedImage }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                                ) : (
-                                    <View style={{ alignItems: 'center' }}>
-                                        <Feather name="camera" size={32} color={appTheme.colors.textTertiary} style={{ marginBottom: 8 }} />
-                                        <Text style={{ fontFamily: appTheme.typography.fontFamily.mono, color: appTheme.colors.textTertiary, fontSize: 10 }}>
-                                            [ SCANNER_STANDBY ]
-                                        </Text>
-                                    </View>
-                                )}
-                                
-                                {/* Sci-fi scanning lines overlay if uploading */}
-                                {uploadingImage && (
-                                    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' }}>
-                                        <ActivityIndicator size="small" color={appTheme.colors.accent} />
-                                        <Text style={{ color: appTheme.colors.accent, fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, marginTop: 8, letterSpacing: 1 }}>
-                                            TRANSMITTING_EVIDENCE...
-                                        </Text>
-                                    </View>
-                                )}
-                            </View>
-
-                            {/* Ticker / Terminal Log */}
-                            <View style={{ backgroundColor: '#000', borderWidth: 1, borderColor: '#222', padding: 10, minHeight: 60, marginBottom: 16 }}>
-                                <Text style={{ fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 8, color: appTheme.colors.textTertiary, marginBottom: 4 }}>
-                                    SYSTEM_LOGS:
-                                </Text>
-                                {attendanceStatus.map((statusStr, index) => (
-                                    <Text key={index} style={{ fontFamily: appTheme.typography.fontFamily.mono, fontSize: 9, color: statusStr.includes('SUCCESS') || statusStr.includes('ONLINE') ? appTheme.colors.success : statusStr.includes('ERROR') || statusStr.includes('OFFLINE') ? appTheme.colors.warning : appTheme.colors.accent, lineHeight: 14 }}>
-                                        {statusStr}
-                                    </Text>
-                                ))}
-                            </View>
-
-                            {/* Buttons */}
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                <TouchableOpacity 
-                                    onPress={() => handleAttendanceImage(true)}
-                                    disabled={uploadingImage}
-                                    style={{ 
-                                        flex: 1, 
-                                        backgroundColor: appTheme.colors.accent, 
-                                        paddingVertical: 12, 
-                                        alignItems: 'center', 
-                                        flexDirection: 'row', 
-                                        justifyContent: 'center', 
-                                        gap: 8 
-                                    }}
-                                >
-                                    <Feather name="camera" size={14} color="#000" />
-                                    <Text style={{ fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, color: '#000' }}>
-                                        SNAP_PHOTO
-                                    </Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity 
-                                    onPress={() => handleAttendanceImage(false)}
-                                    disabled={uploadingImage}
-                                    style={{ 
-                                        flex: 1, 
-                                        borderWidth: 1,
-                                        borderColor: appTheme.colors.border,
-                                        backgroundColor: appTheme.colors.blockFill,
-                                        paddingVertical: 12, 
-                                        alignItems: 'center', 
-                                        flexDirection: 'row', 
-                                        justifyContent: 'center', 
-                                        gap: 8 
-                                    }}
-                                >
-                                    <Feather name="image" size={14} color={appTheme.colors.textSecondary} />
-                                    <Text style={{ fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 10, color: appTheme.colors.textPrimary }}>
-                                        UPLOAD_FILE
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Pending queue warnings */}
-                            {offlineQueue.length > 0 && (
-                                <TouchableOpacity 
-                                    onPress={handleForceSync}
-                                    disabled={isSyncing || uploadingImage}
-                                    style={{ 
-                                        marginTop: 12, 
-                                        borderWidth: 1, 
-                                        borderColor: appTheme.colors.warning, 
-                                        backgroundColor: 'rgba(245, 158, 11, 0.05)', 
-                                        paddingVertical: 10, 
-                                        alignItems: 'center', 
-                                        flexDirection: 'row', 
-                                        justifyContent: 'center', 
-                                        gap: 8 
-                                    }}
-                                >
-                                    <Feather name="refresh-cw" size={12} color={appTheme.colors.warning} />
-                                    <Text style={{ fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 9, color: appTheme.colors.warning }}>
-                                        FORCE_SYNC_PENDING_LOGS ({offlineQueue.length})
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-
-                            {/* Recent Logs List */}
-                            {recentAttendance.length > 0 && (
-                                <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: '#222', paddingTop: 12 }}>
-                                    <Text style={[styles.statLabel, { marginBottom: 8 }]}>RECENT_UPLINKS</Text>
-                                    {recentAttendance.map((log, index) => (
-                                        <View key={log.id || index} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
-                                            <Text style={{ fontFamily: appTheme.typography.fontFamily.mono, fontSize: 9, color: appTheme.colors.textSecondary }}>
-                                                {new Date(log.timestamp).toLocaleDateString()} {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </Text>
-                                            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                                                <Text style={{ fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 8, color: appTheme.colors.accentSecondary }}>[ DISCORD: OK ]</Text>
-                                                <Text style={{ fontFamily: appTheme.typography.fontFamily.monoBold, fontSize: 8, color: appTheme.colors.accent }}>[ FIREBASE: OK ]</Text>
-                                            </View>
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
-
-                        </View>
                     </Animated.View>
 
                     {/* Fuel Expenses Section */}
